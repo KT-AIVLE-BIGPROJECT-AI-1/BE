@@ -1,13 +1,13 @@
-package com.aivle.big_project0101;
+package com.aivle.big_project;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class BigProject0101Application {
+public class BigProjectApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(BigProject0101Application.class, args);
+		SpringApplication.run(BigProjectApplication.class, args);
 	}
 
 }
