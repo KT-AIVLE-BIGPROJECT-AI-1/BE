@@ -1,17 +1,11 @@
 package com.aivle.big_project.user.controller;
 
 import com.aivle.big_project.security.SecurityUtils;
-import com.aivle.big_project.user.dto.auth.SignupRequest;
 import com.aivle.big_project.user.dto.user.UpdateMeRequest;
-import com.aivle.big_project.user.dto.user.UpdateUserRoleRequest;
 import com.aivle.big_project.user.service.UserService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
