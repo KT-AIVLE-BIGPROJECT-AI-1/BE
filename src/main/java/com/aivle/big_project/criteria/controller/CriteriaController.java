@@ -11,13 +11,13 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/cases")
+@RequestMapping("/cases/{caseId}/criteria")
 public class CriteriaController {
 
     private final CriteriaService criteriaService;
 
     // 체크리스트 리스트 조회
-    @GetMapping("/{caseId}/criteria")
+    @GetMapping
     public ResponseEntity<CriteriaListResponse> getCriteriaList(
             @PathVariable UUID caseId
     ) {
@@ -27,7 +27,7 @@ public class CriteriaController {
     }
 
     // 체크리스트 상세 조회 (팝업 / 드로어)
-    @GetMapping("/{caseId}/criteria/{criteriaId}")
+    @GetMapping("/{criteriaId}")
     public ResponseEntity<CriteriaDetailResponse> getCriteriaDetail(
             @PathVariable UUID caseId,
             @PathVariable UUID criteriaId,
@@ -42,4 +42,13 @@ public class CriteriaController {
         );
     }
 
+    // 체크리스트 항목 삭제
+    @DeleteMapping("/{criteriaId}")
+    public ResponseEntity<Void> deleteCriteria(
+            @PathVariable UUID caseId,
+            @PathVariable UUID criteriaId
+    ) {
+        criteriaService.deleteCriteria(caseId, criteriaId);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -10,4 +10,6 @@ public interface CriteriaEvaluationRepository
         extends JpaRepository<CriteriaEvaluationEntity, UUID> {
 
     Optional<CriteriaEvaluationEntity> findByCriteria_CriteriaId(UUID criteriaId);
+
+    boolean existsByCriteria_CriteriaId(UUID criteriaId);
 }
