@@ -10,6 +10,7 @@ import com.aivle.big_project.report.entity.Report;
 import com.aivle.big_project.report.entity.ReportStatus;
 import com.aivle.big_project.report.entity.ReportType;
 import com.aivle.big_project.report.repository.ReportRepository;
+import com.aivle.big_project.storage.DummyObjectStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -31,6 +33,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final CaseRepository caseRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final DummyObjectStorageService dummyObjectStorageService;
 
     // 보고서 임시저장 (모든 보고서에 대하여)
     @Transactional
@@ -179,6 +182,23 @@ public class ReportService {
         Report report = reportRepository.findById(reportId).orElseThrow();
         return toDetail(report);
     }
+
+//    // 보고서 다운로드
+//    public ReportDownloadResponse getDownloadUrl(UUID reportId) {
+//        Report report = reportRepository.findById(reportId).orElseThrow();
+//
+//        // 임시저장 보고서(status == DRAFT)는 다운로드 불가능
+//        if (report.getStatus() == ReportStatus.DRAFT
+//            || report.getFilePath() == null || report.getFilePath().isBlank()) {
+//            throw new IllegalStateException("임시저장 보고서는 다운로드할 수 없습니다.");
+//        }
+//
+////        S3Path path = S3Path.parse(report.getFilePath());
+//        int expiresSec = 600;
+////        String url = dummyObjectStorageService.presignGetUrl(p.bucket(), p.key(), Duration.ofSeconds(expiresSec));
+//
+//        return new ReportDownloadResponse(url, expiresSec);
+//    }
 
     private void assertField(ReportType type, List<UUID> selectedLogIds, UUID finalId) {
         if (type == ReportType.INTERIM) { // 수사보고 -> 사건활동로그 id 리스트
