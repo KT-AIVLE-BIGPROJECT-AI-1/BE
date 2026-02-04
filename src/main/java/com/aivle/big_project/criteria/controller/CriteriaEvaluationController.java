@@ -1,7 +1,10 @@
 package com.aivle.big_project.criteria.controller;
 
 import com.aivle.big_project.criteria.dto.CriteriaEvaluationStatusResponse;
+import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationRequest;
+import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationResponse;
 import com.aivle.big_project.criteria.service.CriteriaEvaluationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +27,17 @@ public class CriteriaEvaluationController {
     ) {
         return ResponseEntity.ok(
                 criteriaEvaluationService.getCriteriaEvaluationStatus(caseId, criteriaId)
+        );
+    }
+
+    @PutMapping("/{criteriaId}")
+    public ResponseEntity<UpdateCriteriaEvaluationResponse> updateCriteriaEvaluation(
+            @PathVariable UUID caseId,
+            @PathVariable UUID criteriaId,
+            @RequestBody @Valid UpdateCriteriaEvaluationRequest request
+    ) {
+        return ResponseEntity.ok(
+                criteriaEvaluationService.updateCriteriaEvaluation(caseId, criteriaId, request)
         );
     }
 }

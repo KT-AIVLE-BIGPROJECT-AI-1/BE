@@ -35,4 +35,19 @@ public class CriteriaEvaluationEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    // 상태 업데이트용 메서드
+    public void updateEvaluation(
+            CriteriaEvaluationStatus status,
+            String reason,
+            String evidenceGap
+    ) {
+        this.status = status;
+        this.reason = reason;
+        this.evidenceGap = evidenceGap;
+        this.updatedAt = LocalDateTime.now();
+    }
 }
