@@ -3,15 +3,10 @@ package com.aivle.big_project.report.entity;
 import com.aivle.big_project.cases.entity.Case;
 import com.aivle.big_project.cases.entity.CaseStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter @NoArgsConstructor
@@ -27,6 +22,7 @@ public class Report {
     @JoinColumn(name = "case_id", nullable = false)
     private Case aCase;
 
+    @Setter
     @Column(name = "final_id")
     private UUID finalId;
 
@@ -53,18 +49,10 @@ public class Report {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    // 보고서 임시저장
-    public static Report newDraft(Case aCase, ReportType type, String title, String content, UUID finalId) {
-        return Report.builder()
-                .reportId(UUID.randomUUID())
-                .aCase(aCase)
-                .type(type)
-                .status(ReportStatus.DRAFT)
-                .title(title)
-                .content(content)
-                .finalId(finalId)
-                .filePath(null)
-                .build();
+    // 보고서 임시저장 업데이트
+    public void updateDraft(String title, String content) {
+        this.title = title;
+        this.content = content;
     }
 
     @PrePersist
