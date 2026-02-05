@@ -11,4 +11,6 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> 
     List<ActivityLog> findByACase_CaseId(UUID caseId);
     // 보고서 내 포함된 로그
     List<ActivityLog> findByReport_ReportId(UUID reportId);
+
+    List<ActivityLog> findByACase_CaseIdOrderByCreatedAtDesc(UUID caseId);
 }
