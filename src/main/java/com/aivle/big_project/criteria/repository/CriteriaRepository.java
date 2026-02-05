@@ -1,0 +1,43 @@
+package com.aivle.big_project.criteria.repository;
+
+import com.aivle.big_project.criteria.dto.CriteriaItem;
+import com.aivle.big_project.criteria.entity.CriteriaEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface CriteriaRepository extends JpaRepository<CriteriaEntity, UUID> {
+
+    //체크리스트 리스트 조회
+    @Query("""
+    select new com.aivle.big_project.criteria.dto.CriteriaItem(
+        c.criteriaId,
+        c.criterionText,
+        i.issueName,
+        i.relatedLaw,
+        c.precedentCaseNo
+    )
+    from CriteriaEntity c
+    join c.legalIssue i
+    where i.caseEntity.caseId = :caseId
+    """)
+    List<CriteriaItem> findCriteriaItemsByCaseId(@Param("caseId") UUID caseId);
+
+    //체크리스트 상세 조회 검증용
+    @Query("""
+    select c
+    from CriteriaEntity c
+    join c.legalIssue i
+    where i.caseEntity.caseId = :caseId
+      and c.criteriaId = :criteriaId
+    """)
+    Optional<CriteriaEntity> findByCaseIdAndCriteriaId(
+            @Param("caseId") UUID caseId,
+            @Param("criteriaId") UUID criteriaId
+    );
+
+}

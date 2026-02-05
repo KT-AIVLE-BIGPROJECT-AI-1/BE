@@ -26,6 +26,10 @@ public class AuthController {
             @RequestPart("data") String data,
             @RequestPart(value = "profile_img", required = false) MultipartFile profileImg
     ) {
+        if (profileImg != null) {
+            System.out.println("profileImg name = " + profileImg.getOriginalFilename());
+        }
+
         SignupRequest req = objectMapper.readValue(data, SignupRequest.class);
         req.setProfileImg(profileImg);
         return ResponseEntity.ok(authService.signup(req));
