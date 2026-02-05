@@ -1,5 +1,6 @@
 package com.aivle.big_project.analysis.controller;
 
+import com.aivle.big_project.analysis.dto.AnalysisDetailResponse;
 import com.aivle.big_project.analysis.dto.AnalysisStatusResponse;
 import com.aivle.big_project.analysis.service.AnalysisService;
 import lombok.RequiredArgsConstructor;
@@ -21,5 +22,14 @@ public class AnalysisController {
             @PathVariable UUID analysisId
     ) {
         return analysisService.getStatus(analysisId);
+    }
+
+    // 분석 상세 조회
+    @GetMapping("/{analysisId}")
+    public AnalysisDetailResponse getAnalysisDetail(
+            @PathVariable UUID caseId,
+            @PathVariable UUID analysisId
+    ) {
+        return analysisService.getAnalysisDetail(analysisId);
     }
 }

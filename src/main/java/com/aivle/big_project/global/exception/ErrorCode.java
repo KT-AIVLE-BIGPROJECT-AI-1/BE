@@ -53,6 +53,10 @@ public enum ErrorCode {
     ANALYSIS_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "존재하지 않는 분석입니다."
+    ),
+    ANALYSIS_NOT_COMPLETED(
+            HttpStatus.CONFLICT,
+            "분석이 완료되지 않았습니다."
     );
 
     private final HttpStatus status;
