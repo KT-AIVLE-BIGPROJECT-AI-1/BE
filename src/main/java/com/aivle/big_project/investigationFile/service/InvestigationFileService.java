@@ -2,6 +2,8 @@ package com.aivle.big_project.investigationFile.service;
 
 import com.aivle.big_project.global.exception.CustomException;
 import com.aivle.big_project.global.exception.ErrorCode;
+import com.aivle.big_project.investigationFile.dto.InvestigationFileListItem;
+import com.aivle.big_project.investigationFile.dto.InvestigationFileListResponse;
 import com.aivle.big_project.investigationFile.dto.InvestigationFileResponse;
 import com.aivle.big_project.investigationFile.entity.FileType;
 import com.aivle.big_project.investigationFile.entity.InvestigationFileEntity;
@@ -16,9 +18,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -81,6 +85,11 @@ public class InvestigationFileService {
         // 파일 유형별 용량 검증
         validateFileSize(fileType, file.getSize());
 
+        if (investigationFileRepository
+                .existsByCaseIdAndOriginName(caseId, originName)) {
+            throw new CustomException(ErrorCode.FILE_ALREADY_EXISTS);
+        }
+
         // 임시 로컬 저장!!!!!
         String filePath = saveToLocal(caseId, file);
 
@@ -100,6 +109,7 @@ public class InvestigationFileService {
             )
         );
         */
+        LocalDateTime now = LocalDateTime.now();
 
         InvestigationFileEntity entity =
                 InvestigationFileEntity.builder()
@@ -108,6 +118,7 @@ public class InvestigationFileService {
                         .filePath(filePath)
                         .originName(originName)
                         .fileSize(file.getSize())
+                        .createdAt(now)
                         .build();
 
         InvestigationFileEntity saved =
@@ -180,5 +191,43 @@ public class InvestigationFileService {
         if (size > limit) {
             throw new CustomException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
+    }
+
+    // 자료 목록 조회
+    public InvestigationFileListResponse getFiles(
+            UUID caseId,
+            String type
+    ) {
+        List<InvestigationFileEntity> entities;
+
+        if (type != null) {
+            FileType fileType;
+            try {
+                fileType = FileType.valueOf(type);
+            } catch (IllegalArgumentException e) {
+                throw new CustomException(ErrorCode.INVALID_FILE_TYPE);
+            }
+
+            entities = investigationFileRepository
+                    .findByCaseIdAndFileTypeOrderByCreatedAtDesc(
+                            caseId,
+                            fileType
+                    );
+        } else {
+            entities = investigationFileRepository
+                    .findByCaseIdOrderByCreatedAtDesc(caseId);
+        }
+
+        List<InvestigationFileListItem> data =
+                entities.stream()
+                        .map(e -> new InvestigationFileListItem(
+                                e.getFileId(),
+                                e.getFileType().name(),
+                                e.getOriginName(),
+                                e.getCreatedAt()
+                        ))
+                        .collect(Collectors.toList());
+
+        return new InvestigationFileListResponse(data);
     }
 }

@@ -1,5 +1,6 @@
 package com.aivle.big_project.investigationFile.controller;
 
+import com.aivle.big_project.investigationFile.dto.InvestigationFileListResponse;
 import com.aivle.big_project.investigationFile.dto.InvestigationFileResponse;
 import com.aivle.big_project.investigationFile.service.InvestigationFileService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,16 @@ public class InvestigationFileController {
     ) {
         return ResponseEntity.ok(
                 investigationFileService.upload(caseId, files)
+        );
+    }
+
+    @GetMapping
+    public ResponseEntity<InvestigationFileListResponse> getFiles(
+            @PathVariable UUID caseId,
+            @RequestParam(required = false) String type
+    ) {
+        return ResponseEntity.ok(
+                investigationFileService.getFiles(caseId, type)
         );
     }
 }

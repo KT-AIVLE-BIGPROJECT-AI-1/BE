@@ -40,6 +40,10 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST,
             "업로드 가능한 파일 크기를 초과했습니다."
     ),
+    FILE_ALREADY_EXISTS(
+            HttpStatus.CONFLICT,
+            "이미 등록된 파일입니다."
+    ),
     FILE_UPLOAD_FAILED(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "파일 업로드 중 오류가 발생했습니다."
