@@ -57,6 +57,10 @@ public enum ErrorCode {
     ANALYSIS_NOT_COMPLETED(
             HttpStatus.CONFLICT,
             "분석이 완료되지 않았습니다."
+    ),
+    NOT_AUDIO_ANALYSIS(
+            HttpStatus.BAD_REQUEST,
+            "음성 자료에 대한 분석 결과만 전사 조회가 가능합니다."
     );
 
     private final HttpStatus status;
