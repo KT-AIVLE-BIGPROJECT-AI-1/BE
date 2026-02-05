@@ -11,5 +11,4 @@ import java.util.List;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class ReportListResponse {
     private List<ReportSummaryResponse> reports;
-    private PageInfo info;
 }

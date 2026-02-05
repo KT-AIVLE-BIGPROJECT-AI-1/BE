@@ -257,56 +257,31 @@ public class ReportService {
     }
 
     // 사건별 보고서 목록
-    public ReportListResponse listReportsByCase(UUID caseId, UUID userId, Integer page, Integer size) {
+    public ReportListResponse listReportsByCase(UUID caseId, UUID userId, String type) {
         Case aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
-        int safePage = Math.max(page, 1);
-        int safeSize = size <= 0 ? 20 : size;
-
-        Pageable pageable = PageRequest.of(
-                safePage - 1,
-                safeSize,
-                Sort.by(Sort.Direction.DESC, "updatedAt")
-        );
-        Page<Report> result = reportRepository.findByACase_CaseId(caseId, pageable);
+        List<ReportType> filterTypes = parseFilterTypes(type);
+        List<Report> reports = filterTypes.isEmpty()
+                ? reportRepository.findByACase_CaseIdOrderByUpdatedAtDesc(caseId)
+                : reportRepository.findByACase_CaseIdAndTypeInOrderByUpdatedAtDesc(caseId, filterTypes);
 
         return ReportListResponse.builder()
-                .reports(result.getContent().stream().map(this::toSummary).toList())
-                .info(PageInfo.builder()
-                        .page(safePage)
-                        .size(safeSize)
-                        .totalElements(result.getTotalElements())
-                        .totalPages(result.getTotalPages())
-                        .hasNext(result.hasNext())
-                        .build())
+                .reports(reports.stream().map(this::toSummary).toList())
                 .build();
     }
 
     // 내 보고서 목록
-    public ReportListResponse listReportsByUser(UUID userId, Integer page, Integer size) {
+    public ReportListResponse listReportsByUser(UUID userId, String type) {
         // 기준 = 내가 담당자인 사건의 보고서
 
-        int safePage = Math.max(page, 1);
-        int safeSize = size <= 0 ? 20 : size;
-
-        Pageable pageable = PageRequest.of(
-                safePage - 1,
-                safeSize,
-                Sort.by(Sort.Direction.DESC, "updatedAt")
-        );
-
-        Page<Report> result = reportRepository.findByACase_User_UserId(userId, pageable);
+        List<ReportType> filterTypes = parseFilterTypes(type);
+        List<Report> reports = filterTypes.isEmpty()
+                ? reportRepository.findByACase_User_UserIdOrderByUpdatedAtDesc(userId)
+                : reportRepository.findByACase_User_UserIdAndTypeInOrderByUpdatedAtDesc(userId, filterTypes);
 
         return ReportListResponse.builder()
-                .reports(result.getContent().stream().map(this::toSummary).toList())
-                .info(PageInfo.builder()
-                        .page(safePage)
-                        .size(safeSize)
-                        .totalElements(result.getTotalElements())
-                        .totalPages(result.getTotalPages())
-                        .hasNext(result.hasNext())
-                        .build())
+                .reports(reports.stream().map(this::toSummary).toList())
                 .build();
     }
 
@@ -350,7 +325,7 @@ public class ReportService {
 
     // 스토리지 저장
     private String generateAndUpload(Report report) {
-
+        return null;
     }
 
     private Report upsertFinalizingReport(UUID reportId, ReportType expextedType, Case aCase) {
@@ -457,6 +432,18 @@ public class ReportService {
         } catch (Exception e) {
             throw new RuntimeException("type 값이 올바르지 않습니다: " + raw);
         }
+    }
+
+    private List<ReportType> parseFilterTypes(String raw) {
+        if (raw == null || raw.isBlank()) return List.of(); // 필터 없음
+
+        String v = raw.trim().toUpperCase();
+        return switch (v) {
+            case "INTERIM" -> List.of(ReportType.INTERIM);
+            case "FINAL" -> List.of(ReportType.FINAL);
+            case "DECISION" -> List.of(ReportType.TRANSFER, ReportType.NON_TRANSFER, ReportType.SUSPENSION);
+            default -> throw new RuntimeException("type 값이 올바르지 않습니다: " + raw + " (INTERIM|FINAL|DECISION)");
+        };
     }
 
     private ReportType parseDecisionType(String raw) {

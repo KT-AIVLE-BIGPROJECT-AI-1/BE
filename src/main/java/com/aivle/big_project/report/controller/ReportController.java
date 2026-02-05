@@ -127,21 +127,19 @@ public class ReportController {
     @GetMapping("/cases/{caseId}/reports")
     public ResponseEntity<?> listByCase(
             @PathVariable UUID caseId,
-            @RequestParam(defaultValue = "1") Integer page,   // 1-base
-            @RequestParam(defaultValue = "20") Integer size
+            @RequestParam(value = "type", required = false) String type
     ) {
         UUID userId = currentUserId();
-        return ResponseEntity.ok(reportService.listReportsByCase(caseId, userId, page, size));
+        return ResponseEntity.ok(reportService.listReportsByCase(caseId, userId, type));
     }
 
     // 내 보고서 목록 조회
     @GetMapping("/reports/user")
     public ResponseEntity<?> listByUser(
-            @RequestParam(defaultValue = "1") Integer page,   // 1-base
-            @RequestParam(defaultValue = "20") Integer size
+            @RequestParam(value = "type", required = false) String type
     ) {
         UUID userId = currentUserId();
-        return ResponseEntity.ok(reportService.listReportsByUser(userId, page, size));
+        return ResponseEntity.ok(reportService.listReportsByUser(userId, type));
     }
 
     // 보고서 상세 조회
