@@ -8,8 +8,11 @@ import com.aivle.big_project.criteria.entity.CriteriaEvaluationEntity;
 import com.aivle.big_project.criteria.entity.LegalIssueEntity;
 import com.aivle.big_project.criteria.repository.CriteriaEvaluationRepository;
 import com.aivle.big_project.criteria.repository.CriteriaRepository;
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -81,5 +84,24 @@ public class CriteriaService {
             return List.of();
         }
         return List.of(evidenceGap.split("\n"));
+    }
+
+    @Transactional
+    public void deleteCriteria(UUID caseId, UUID criteriaId) {
+
+        CriteriaEntity criteria = criteriaRepository
+                .findByCaseIdAndCriteriaId(caseId, criteriaId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.CRITERIA_NOT_FOUND)
+                );
+
+        // 분석/평가 결과가 존재하면 삭제 불가
+        if (criteriaEvaluationRepository.existsByCriteria_CriteriaId(criteriaId)) {
+            throw new CustomException(
+                    ErrorCode.CRITERIA_ALREADY_ANALYZED
+            );
+        }
+
+        criteriaRepository.delete(criteria);
     }
 }
