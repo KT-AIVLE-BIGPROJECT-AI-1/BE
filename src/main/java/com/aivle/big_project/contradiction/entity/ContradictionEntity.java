@@ -46,4 +46,11 @@ public class ContradictionEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public void changeStatus(ContradictionStatus targetStatus) {
+        if (!this.status.canChangeTo(targetStatus)) {
+            throw new IllegalStateException("INVALID_CONTRADICTION_STATUS_TRANSITION");
+        }
+        this.status = targetStatus;
+    }
 }

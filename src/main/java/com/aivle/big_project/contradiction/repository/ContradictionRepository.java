@@ -18,4 +18,6 @@ public interface ContradictionRepository
         where c.caseEntity.caseId = :caseId
     """)
     List<ContradictionEntity> findAllByCaseId(@Param("caseId") UUID caseId);
+
+    Optional<ContradictionEntity> findByContradictionIdAndCaseEntity_CaseId(UUID contradictionId, UUID caseId);
 }

@@ -4,13 +4,17 @@ import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.analysis.repository.AnalysisRepository;
 import com.aivle.big_project.contradiction.dto.ContradictionListResponse;
 import com.aivle.big_project.contradiction.dto.ContradictionResponse;
+import com.aivle.big_project.contradiction.dto.UpdateContradictionStatusRequest;
+import com.aivle.big_project.contradiction.dto.UpdateContradictionStatusResponse;
 import com.aivle.big_project.contradiction.entity.ContradictionEntity;
 import com.aivle.big_project.contradiction.repository.ContradictionRepository;
 import com.aivle.big_project.global.exception.CustomException;
 import com.aivle.big_project.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -29,5 +33,33 @@ public class ContradictionService {
                         .toList();
 
         return ContradictionListResponse.of(caseId, responses);
+    }
+
+    @Transactional
+    public UpdateContradictionStatusResponse updateStatus(
+            UUID caseId,
+            UUID contradictionId,
+            UpdateContradictionStatusRequest request
+    ) {
+        ContradictionEntity contradiction =
+                contradictionRepository
+                        .findByContradictionIdAndCaseEntity_CaseId(contradictionId, caseId)
+                        .orElseThrow(() ->
+                                new CustomException(ErrorCode.CONTRADICTION_NOT_FOUND)
+                        );
+
+        try {
+            contradiction.changeStatus(request.getStatus());
+        } catch (IllegalStateException e) {
+            throw new CustomException(
+                    ErrorCode.INVALID_CONTRADICTION_STATUS_TRANSITION
+            );
+        }
+
+        return new UpdateContradictionStatusResponse(
+                contradiction.getContradictionId(),
+                contradiction.getStatus(),
+                LocalDateTime.now()
+        );
     }
 }

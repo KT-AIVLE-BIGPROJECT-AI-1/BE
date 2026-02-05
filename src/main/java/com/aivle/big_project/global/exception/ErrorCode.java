@@ -55,6 +55,17 @@ public enum ErrorCode {
             "존재하지 않는 전사입니다."
     ),
 
+    // contradiction
+    CONTRADICTION_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 모순입니다."
+    ),
+
+    INVALID_CONTRADICTION_STATUS_TRANSITION(
+            HttpStatus.CONFLICT,
+            "현재 상태에서는 해당 상태로 변경할 수 없습니다."
+    ),
+
     // analysis
     ANALYSIS_NOT_FOUND(
             HttpStatus.NOT_FOUND,
