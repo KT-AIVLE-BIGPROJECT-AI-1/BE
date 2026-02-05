@@ -4,7 +4,6 @@ import com.aivle.big_project.investigationFile.entity.FileType;
 import com.aivle.big_project.investigationFile.entity.InvestigationFileEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 public interface InvestigationFileRepository

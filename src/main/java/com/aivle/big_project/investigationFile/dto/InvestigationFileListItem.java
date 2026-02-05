@@ -1,8 +1,11 @@
 package com.aivle.big_project.investigationFile.dto;
 
+import lombok.Getter;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Getter
 public class InvestigationFileListItem {
 
     private UUID fileId;
@@ -22,19 +25,4 @@ public class InvestigationFileListItem {
         this.createdAt = createdAt;
     }
 
-    public UUID getFileId() {
-        return fileId;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public String getOriginName() {
-        return originName;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
 }
