@@ -9,18 +9,18 @@ import java.util.UUID;
 public class KeyStatementResponse {
 
     private final UUID statementId;
-    private final String content;
+    private final String transcript;
     private final String description;
     private final LocalDateTime createdAt;
 
     public KeyStatementResponse(
             UUID statementId,
-            String content,
+            String transcript,
             String description,
             LocalDateTime createdAt
     ) {
         this.statementId = statementId;
-        this.content = content;
+        this.transcript = transcript;
         this.description = description;
         this.createdAt = createdAt;
     }

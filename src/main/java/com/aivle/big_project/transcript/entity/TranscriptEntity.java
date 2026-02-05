@@ -13,16 +13,19 @@ import java.util.*;
 public class TranscriptEntity {
 
     @Id
+    @Column(name = "transcript_id")
     private UUID transcriptId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "analysis_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id", nullable = false, unique = true)
     private AnalysisEntity analysis;
 
+    @Column(name = "speaker")
     private String speaker;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "text")
     private String text;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 }

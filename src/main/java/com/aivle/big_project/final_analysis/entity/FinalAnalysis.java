@@ -1,6 +1,6 @@
 package com.aivle.big_project.final_analysis.entity;
 
-import com.aivle.big_project.cases.entity.Case;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,7 +23,7 @@ public class FinalAnalysis {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "case_id", nullable = false)
-    private Case aCase;
+    private CaseEntity aCase;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "recommended_decision", nullable = false, length = 30)

@@ -1,6 +1,6 @@
 package com.aivle.big_project.criteria.entity;
 
-import com.aivle.big_project.cases.entity.Case;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,7 +21,7 @@ public class LegalIssueEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_id", nullable = false)
-    private Case caseEntity;
+    private CaseEntity caseEntity;
 
     @Column(name = "issue_name", nullable = false)
     private String issueName;

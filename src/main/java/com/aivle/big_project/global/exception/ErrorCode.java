@@ -49,6 +49,12 @@ public enum ErrorCode {
             "파일 업로드 중 오류가 발생했습니다."
     ),
 
+    // transcript
+    TRANSCRIPT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 전사입니다."
+    ),
+
     // analysis
     ANALYSIS_NOT_FOUND(
             HttpStatus.NOT_FOUND,

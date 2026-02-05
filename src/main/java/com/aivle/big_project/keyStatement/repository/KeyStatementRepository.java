@@ -9,5 +9,5 @@ import java.util.UUID;
 public interface KeyStatementRepository
         extends JpaRepository<KeyStatementEntity, UUID> {
 
-    List<KeyStatementEntity> findByAnalysisId(UUID analysisId);
+    List<KeyStatementEntity> findByTranscript_TranscriptId(UUID transcriptId);
 }

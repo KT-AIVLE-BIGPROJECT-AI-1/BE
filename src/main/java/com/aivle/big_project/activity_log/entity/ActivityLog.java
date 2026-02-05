@@ -1,6 +1,6 @@
 package com.aivle.big_project.activity_log.entity;
 
-import com.aivle.big_project.cases.entity.Case;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.report.entity.Report;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,7 +20,7 @@ public class ActivityLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_id", nullable = false)
-    private Case aCase;
+    private CaseEntity aCase;
 
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)

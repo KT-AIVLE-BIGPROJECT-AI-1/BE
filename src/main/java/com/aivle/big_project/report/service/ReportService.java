@@ -3,7 +3,7 @@ package com.aivle.big_project.report.service;
 import com.aivle.big_project.activity_log.entity.ActivityLog;
 import com.aivle.big_project.activity_log.repository.ActivityLogRepository;
 
-import com.aivle.big_project.cases.entity.Case;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.repository.CaseRepository;
 import com.aivle.big_project.final_analysis.entity.FinalAnalysis;
 import com.aivle.big_project.final_analysis.repository.FinalAnalysisRepository;
@@ -13,17 +13,10 @@ import com.aivle.big_project.report.entity.ReportStatus;
 import com.aivle.big_project.report.entity.ReportType;
 import com.aivle.big_project.report.repository.ReportRepository;
 import com.aivle.big_project.storage.DummyObjectStorageService;
-import jakarta.persistence.*;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -43,7 +36,7 @@ public class ReportService {
     // 중간 수사 보고 초안 생성
     @Transactional
     public ReportGenerateResponse generateInterimReport(UUID caseId, List<UUID> logIds, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         if (logIds == null || logIds.isEmpty()) throw new RuntimeException("log_ids는 필수입니다.");
@@ -76,7 +69,7 @@ public class ReportService {
     // 중간 수사 보고 작성완료
     @Transactional
     public ReportDetailResponse finalizeInterim(UUID caseId, ReportFinalizeRequest req, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         if (req.getSelectedLogIds() == null || req.getSelectedLogIds().isEmpty()) {
@@ -99,7 +92,7 @@ public class ReportService {
     // 수사 결과 보고 초안 생성
     @Transactional
     public ReportGenerateResponse generateFinalReport(UUID caseId, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
@@ -121,7 +114,7 @@ public class ReportService {
     // 수사 결과 보고 작성완료
     @Transactional
     public ReportDetailResponse finalizeFinal(UUID caseId, ReportFinalizeRequest req, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
@@ -142,7 +135,7 @@ public class ReportService {
     // 수사 결정서 초안 생성
     @Transactional
     public ReportGenerateResponse generateDecisionDraft(UUID caseId, String decisionTypeRaw, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         ReportType decisionReportType = parseDecisionType(decisionTypeRaw);
@@ -165,7 +158,7 @@ public class ReportService {
     // 수사 결정서 작성완료
     @Transactional
     public ReportDetailResponse finalizeDecision(UUID caseId, String decisionTypeRaw, ReportFinalizeRequest req, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         ReportType type = parseDecisionType(decisionTypeRaw);
@@ -190,7 +183,7 @@ public class ReportService {
             ReportDraftCreateRequest req,
             UUID userId
     ) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId); // 사건 - 사용자 간 권한 검사
 
         ReportType type = parseType(req.getType());
@@ -231,7 +224,7 @@ public class ReportService {
             ReportDraftUpdateRequest req,
             UUID userId
     ) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         Report report = reportRepository.findById(reportId).orElseThrow();
@@ -258,7 +251,7 @@ public class ReportService {
 
     // 사건별 보고서 목록
     public ReportListResponse listReportsByCase(UUID caseId, UUID userId, String type) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         List<ReportType> filterTypes = parseFilterTypes(type);
@@ -287,7 +280,7 @@ public class ReportService {
 
     // 임시저장 불러오기
     public ReportDetailResponse getDraft(UUID caseId, UUID reportId, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         Report report = reportRepository.findById(reportId).orElseThrow();
@@ -328,7 +321,7 @@ public class ReportService {
         return null;
     }
 
-    private Report upsertFinalizingReport(UUID reportId, ReportType expextedType, Case aCase) {
+    private Report upsertFinalizingReport(UUID reportId, ReportType expextedType, CaseEntity aCase) {
         if (reportId == null) {
             // 임시저장 되었던 튜플이 없다면, 새로 생성
             return reportRepository.save(
@@ -408,7 +401,7 @@ public class ReportService {
     }
 
 
-    private void assertAssignee(Case aCase, UUID userId) {
+    private void assertAssignee(CaseEntity aCase, UUID userId) {
         if (aCase.getUser() == null || aCase.getUser().getUserId() == null) {
             throw new RuntimeException("사건 담당자 정보가 없습니다.");
         }

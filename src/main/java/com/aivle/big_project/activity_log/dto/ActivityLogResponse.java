@@ -1,13 +1,6 @@
 package com.aivle.big_project.activity_log.dto;
 
-import com.aivle.big_project.activity_log.entity.ActivityLogField;
-import com.aivle.big_project.activity_log.entity.ActivityLogStatus;
-import com.aivle.big_project.activity_log.entity.ActivityType;
-import com.aivle.big_project.cases.entity.Case;
-import com.aivle.big_project.report.entity.Report;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.UuidGenerator;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 

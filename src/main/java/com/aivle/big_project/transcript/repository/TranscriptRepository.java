@@ -5,7 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.*;
 
-public interface TranscriptRepository extends JpaRepository<TranscriptEntity, UUID> {
+public interface TranscriptRepository
+        extends JpaRepository<TranscriptEntity, UUID> {
 
     List<TranscriptEntity> findAllByAnalysis_AnalysisIdOrderByCreatedAtAsc(UUID analysisId);
 }
