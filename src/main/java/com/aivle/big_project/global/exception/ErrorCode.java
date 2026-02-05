@@ -47,6 +47,12 @@ public enum ErrorCode {
     FILE_UPLOAD_FAILED(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "파일 업로드 중 오류가 발생했습니다."
+    ),
+
+    // analysis
+    ANALYSIS_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 분석입니다."
     );
 
     private final HttpStatus status;
