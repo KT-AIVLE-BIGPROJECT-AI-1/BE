@@ -32,6 +32,7 @@ public class Report {
     @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
+    @Setter
     @Column(name = "file_path", columnDefinition = "TEXT")
     private String filePath;
 
@@ -39,6 +40,7 @@ public class Report {
     @Column(name = "type", nullable = false)
     private ReportType type;
 
+    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private ReportStatus status;

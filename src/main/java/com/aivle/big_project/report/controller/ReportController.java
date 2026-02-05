@@ -1,8 +1,6 @@
 package com.aivle.big_project.report.controller;
 
-import com.aivle.big_project.report.dto.ReportDetailResponse;
-import com.aivle.big_project.report.dto.ReportDraftCreateRequest;
-import com.aivle.big_project.report.dto.ReportDraftUpdateRequest;
+import com.aivle.big_project.report.dto.*;
 import com.aivle.big_project.report.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +15,75 @@ import static com.aivle.big_project.security.SecurityUtils.currentUserId;
 public class ReportController {
 
     private final ReportService reportService;
+
+    /*
+    * (중간) 수사 보고
+    * */
+    // 수사 보고 초안 생성 (선택한 로그 ID는 body에)
+    @PostMapping("/cases/{caseId}/reports/interim/draft")
+    public ResponseEntity<?> generateInterimDraft(
+            @PathVariable UUID caseId,
+            @RequestBody InterimReportGenerateRequest req
+    ) {
+        UUID userId = currentUserId();
+        return ResponseEntity.ok(reportService.generateInterimReport(caseId, req.getSelectedLogIds(), userId));
+    }
+
+    // 수사 보고 작성완료
+    @PostMapping("/cases/{caseId}/reports/interim")
+    public ResponseEntity<?> finalizeInterim(
+            @PathVariable UUID caseId,
+            @RequestBody ReportFinalizeRequest req
+    ) {
+        UUID userId = currentUserId();
+        return ResponseEntity.ok(reportService.finalizeInterim(caseId, req, userId));
+    }
+
+    /*
+    * 수사 결과 보고
+    * */
+
+    // 수사 결과 보고 초안 생성
+    @GetMapping("/cases/{caseId}/reports/final")
+    public ResponseEntity<?> generateFinalDraft(@PathVariable UUID caseId) {
+        UUID userId = currentUserId();
+        return ResponseEntity.ok(reportService.generateFinalReport(caseId, userId));
+    }
+
+    // 수사 결과 보고 작성완료
+    @PostMapping("/cases/{caseId}/reports/final")
+    public ResponseEntity<?> finalizeFinal(
+            @PathVariable UUID caseId,
+            @RequestBody ReportFinalizeRequest req
+    ) {
+        UUID userId = currentUserId();
+        return ResponseEntity.ok(reportService.finalizeFinal(caseId, req, userId));
+    }
+
+    /*
+    * 수사 결정서 (송치 / 불송치 / 수사중지)
+    * */
+
+    // 수사 결정서 초안 생성
+    @GetMapping("/cases/{caseId}/reports/decision")
+    public ResponseEntity<ReportGenerateResponse> generateDecisionDraft(
+            @PathVariable UUID caseId,
+            @RequestParam(name = "decision_type") String decisionType
+    ) {
+        UUID userId = currentUserId();
+        return ResponseEntity.ok(reportService.generateDecisionDraft(caseId, decisionType, userId));
+    }
+
+    // 수사 결정서 작성완료
+    @PostMapping("/cases/{caseId}/reports/decision")
+    public ResponseEntity<ReportDetailResponse> finalizeDecision(
+            @PathVariable UUID caseId,
+            @RequestParam(name = "decision_type") String decisionType,
+            @RequestBody ReportFinalizeRequest req
+    ) {
+        UUID userId = currentUserId();
+        return ResponseEntity.ok(reportService.finalizeDecision(caseId, decisionType, req, userId));
+    }
 
     /*
     * 보고서 임시 저장 (생성 / 불러오기 / 업데이트)

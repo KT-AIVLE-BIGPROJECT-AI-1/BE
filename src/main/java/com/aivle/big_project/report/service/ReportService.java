@@ -5,13 +5,17 @@ import com.aivle.big_project.activity_log.repository.ActivityLogRepository;
 
 import com.aivle.big_project.cases.entity.Case;
 import com.aivle.big_project.cases.repository.CaseRepository;
+import com.aivle.big_project.final_analysis.entity.FinalAnalysis;
+import com.aivle.big_project.final_analysis.repository.FinalAnalysisRepository;
 import com.aivle.big_project.report.dto.*;
 import com.aivle.big_project.report.entity.Report;
 import com.aivle.big_project.report.entity.ReportStatus;
 import com.aivle.big_project.report.entity.ReportType;
 import com.aivle.big_project.report.repository.ReportRepository;
 import com.aivle.big_project.storage.DummyObjectStorageService;
+import jakarta.persistence.*;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,7 +23,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +37,151 @@ public class ReportService {
     private final CaseRepository caseRepository;
     private final ActivityLogRepository activityLogRepository;
     private final DummyObjectStorageService dummyObjectStorageService;
+    private final FinalAnalysisRepository finalAnalysisRepository;
+
+
+    // 중간 수사 보고 초안 생성
+    @Transactional
+    public ReportGenerateResponse generateInterimReport(UUID caseId, List<UUID> logIds, UUID userId) {
+        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        assertAssignee(aCase, userId);
+
+        if (logIds == null || logIds.isEmpty()) throw new RuntimeException("log_ids는 필수입니다.");
+
+        List<ActivityLog> logs = activityLogRepository.findAllById(logIds);
+        if (logs.size() != logIds.size()) throw new RuntimeException("존재하지 않는 log_id가 포함되어 있습니다.");
+
+        // 같은 사건의 로그만 허용
+        for (ActivityLog log : logs) {
+            if (!log.getACase().getCaseId().equals(caseId)) {
+                throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
+            }
+        }
+
+        // AI 호출 (초안 생성)
+//        var aiDraft = aiReportClient.generateInterimDraft(caseId, logs);
+        // 사건 정보 + 선택된 모든 로그의 세부 정보 담아서 요청
+        // title, content(JSON) 받아오기
+
+        return ReportGenerateResponse.builder()
+                .caseId(caseId)
+                .type(ReportType.INTERIM.name())
+//                .title(aiDraft.title())
+//                .content(aiDraft.content())
+                .selectedLogIds(logIds)
+                .build();
+    }
+
+
+    // 중간 수사 보고 작성완료
+    @Transactional
+    public ReportDetailResponse finalizeInterim(UUID caseId, ReportFinalizeRequest req, UUID userId) {
+        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        assertAssignee(aCase, userId);
+
+        if (req.getSelectedLogIds() == null || req.getSelectedLogIds().isEmpty()) {
+            throw new RuntimeException("selected_log_ids는 필수입니다.");
+        }
+
+        Report report = upsertFinalizingReport(req.getReportId(), ReportType.INTERIM, aCase);
+
+        report.updateDraft(req.getTitle(), req.getContent());
+        report.setStatus(ReportStatus.FINALIZED);
+
+        syncReportLogs(caseId, report, req.getSelectedLogIds());
+
+//        String path = generateAndUpload(report);
+//        report.setFilePath(path);;
+
+        return toDetail(report);
+    }
+
+    // 수사 결과 보고 초안 생성
+    @Transactional
+    public ReportGenerateResponse generateFinalReport(UUID caseId, UUID userId) {
+        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        assertAssignee(aCase, userId);
+
+        FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
+
+        // AI 호출
+//        var aiDraft = aiReportClient.generateFinalDraft(caseId, finalAnalysis);
+        // 사건 정보 + 찾아낸 가장 최신 최종통합분석의 세부 내용 모두 담아서 요청
+        // title, content(JSON) 받아오기
+
+        return ReportGenerateResponse.builder()
+                .caseId(caseId)
+                .type(ReportType.FINAL.name())
+//                .title(aiDraft.title())
+//                .content(aiDraft.content())
+                .selectedLogIds(List.of())
+                .build();
+    }
+
+    // 수사 결과 보고 작성완료
+    @Transactional
+    public ReportDetailResponse finalizeFinal(UUID caseId, ReportFinalizeRequest req, UUID userId) {
+        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        assertAssignee(aCase, userId);
+
+        FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
+
+        Report report = upsertFinalizingReport(req.getReportId(), ReportType.FINAL, aCase);
+
+        report.updateDraft(req.getTitle(), req.getContent());
+        report.setFinalId(finalAnalysis.getFinalId());
+        report.setStatus(ReportStatus.FINALIZED);
+
+        String path = generateAndUpload(report);
+        report.setFilePath(path);
+
+        return toDetail(report);
+    }
+
+
+    // 수사 결정서 초안 생성
+    @Transactional
+    public ReportGenerateResponse generateDecisionDraft(UUID caseId, String decisionTypeRaw, UUID userId) {
+        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        assertAssignee(aCase, userId);
+
+        ReportType decisionReportType = parseDecisionType(decisionTypeRaw);
+        FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
+
+        // AI 호출
+//        AiReportClient.AiDraftResult aiDraft = aiReportClient.generateDecisionDraft(caseId, finalAnalysis, decisionReportType);
+        // 사건 정보 + 결정서 종류(송치/불송치/중지) + 찾아낸 가장 최신 최종통합분석의 세부 내용 모두 담아서 요청
+        // title, content(JSON) 받아오기
+
+        return ReportGenerateResponse.builder()
+                .caseId(caseId)
+                .type(decisionReportType.name())
+//                .title(aiDraft.title())
+//                .content(aiDraft.content())
+                .selectedLogIds(List.of())
+                .build();
+    }
+
+    // 수사 결정서 작성완료
+    @Transactional
+    public ReportDetailResponse finalizeDecision(UUID caseId, String decisionTypeRaw, ReportFinalizeRequest req, UUID userId) {
+        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        assertAssignee(aCase, userId);
+
+        ReportType type = parseDecisionType(decisionTypeRaw);
+        FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
+
+        Report report = upsertFinalizingReport(req.getReportId(), type, aCase);
+
+        report.updateDraft(req.getTitle(), req.getContent());
+        report.setFinalId(finalAnalysis.getFinalId());
+        report.setStatus(ReportStatus.FINALIZED);
+
+        String path = generateAndUpload(report);
+        report.setFilePath(path);
+
+        return toDetail(report);
+    }
 
     // 보고서 임시저장 (모든 보고서에 대하여)
     @Transactional
@@ -200,6 +348,47 @@ public class ReportService {
 //        return new ReportDownloadResponse(url, expiresSec);
 //    }
 
+    // 스토리지 저장
+    private String generateAndUpload(Report report) {
+
+    }
+
+    private Report upsertFinalizingReport(UUID reportId, ReportType expextedType, Case aCase) {
+        if (reportId == null) {
+            // 임시저장 되었던 튜플이 없다면, 새로 생성
+            return reportRepository.save(
+                    Report.builder()
+                            .aCase(aCase)
+                            .type(expextedType)
+                            .status(ReportStatus.DRAFT)
+                            .title(null)
+                            .content(null)
+                            .filePath(null)
+                            .finalId(null)
+                            .build()
+            );
+        }
+
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new RuntimeException("report_id에 해당하는 보고서가 존재하지 않습니다."));
+
+        if (!report.getACase().getCaseId().equals(aCase.getCaseId())) {
+            throw new RuntimeException("case_id와 report_id가 일치하지 않습니다.");
+        }
+        if (report.getType() != expextedType) {
+            throw new RuntimeException("보고서 type이 일치하지 않습니다.");
+        }
+        if (report.getStatus() != ReportStatus.DRAFT) {
+            throw new RuntimeException("이미 작성 완료된 보고서입니다.");
+        }
+        return report;
+    }
+
+    private FinalAnalysis latestFinalAnalysis(UUID caseId) {
+        return finalAnalysisRepository.findTopByACase_CaseIdOrderByCreatedAtDesc(caseId)
+                .orElseThrow(() -> new RuntimeException("최종 통합분석이 존재하지 않습니다."));
+    }
+
     private void assertField(ReportType type, List<UUID> selectedLogIds, UUID finalId) {
         if (type == ReportType.INTERIM) { // 수사보고 -> 사건활동로그 id 리스트
             if (selectedLogIds == null || selectedLogIds.isEmpty()) {
@@ -268,6 +457,17 @@ public class ReportService {
         } catch (Exception e) {
             throw new RuntimeException("type 값이 올바르지 않습니다: " + raw);
         }
+    }
+
+    private ReportType parseDecisionType(String raw) {
+        if (raw == null || raw.isBlank()) throw new RuntimeException("decision_type은 필수입니다.");
+        String v = raw.trim().toUpperCase();
+        return switch (v) {
+            case "TRANSFER" -> ReportType.TRANSFER;
+            case "NO_TRANSFER" -> ReportType.NON_TRANSFER;
+            case "SUSPENSION" -> ReportType.SUSPENSION;
+            default -> throw new RuntimeException("decision_type 값이 올바르지 않습니다: " + raw);
+        };
     }
 
     private ReportDetailResponse toDetail(Report report) {
