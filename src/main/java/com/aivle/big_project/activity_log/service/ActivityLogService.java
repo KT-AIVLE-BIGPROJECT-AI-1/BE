@@ -3,7 +3,7 @@ package com.aivle.big_project.activity_log.service;
 import com.aivle.big_project.activity_log.dto.ActivityLogListResponse;
 import com.aivle.big_project.activity_log.entity.ActivityLog;
 import com.aivle.big_project.activity_log.repository.ActivityLogRepository;
-import com.aivle.big_project.cases.entity.Case;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.repository.CaseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,14 +21,14 @@ public class ActivityLogService {
     private final CaseRepository caseRepository;
 
     public ActivityLogListResponse listActivityLogs(UUID caseId, UUID userId) {
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
         List<ActivityLog> logs = activityLogRepository.findByACase_CaseIdOrderByCreatedAtDesc(caseId);
         return ActivityLogListResponse.from(logs);
     }
 
-    private void assertAssignee(Case aCase, UUID userId) {
+    private void assertAssignee(CaseEntity aCase, UUID userId) {
         if (aCase.getUser() == null || aCase.getUser().getUserId() == null) {
             throw new RuntimeException("사건 담당자 정보가 없습니다.");
         }

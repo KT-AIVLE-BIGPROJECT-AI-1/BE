@@ -1,7 +1,6 @@
 package com.aivle.big_project.report.entity;
 
-import com.aivle.big_project.cases.entity.Case;
-import com.aivle.big_project.cases.entity.CaseStatus;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
@@ -20,7 +19,7 @@ public class Report {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_id", nullable = false)
-    private Case aCase;
+    private CaseEntity aCase;
 
     @Setter
     @Column(name = "final_id")

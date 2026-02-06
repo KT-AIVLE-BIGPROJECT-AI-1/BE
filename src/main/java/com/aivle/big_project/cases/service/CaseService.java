@@ -2,13 +2,12 @@ package com.aivle.big_project.cases.service;
 
 import com.aivle.big_project.cases.client.AiSummaryClient;
 import com.aivle.big_project.cases.dto.*;
-import com.aivle.big_project.cases.entity.Case;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.cases.entity.CaseType;
 import com.aivle.big_project.cases.repository.CaseRepository;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,7 +18,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -55,7 +53,7 @@ public class CaseService {
         }
 
         CaseType paredType = parseTypeOrNull(type);
-        Specification<Case> spec = Specification.where(CaseSpecifications.assigneeIs(user.getUserId()))
+        Specification<CaseEntity> spec = Specification.where(CaseSpecifications.assigneeIs(user.getUserId()))
                 .and(CaseSpecifications.titleKeyword(keyword))
                 .and(CaseSpecifications.typeEquals(paredType))
                 .and(CaseSpecifications.occuredAtBetween(startOccuredAt, endOccuredAt));
@@ -69,7 +67,7 @@ public class CaseService {
                 Sort.by(Sort.Direction.DESC, "updatedAt")
         );
 
-        Page<Case> result = caseRepository.findAll(spec, pageable);
+        Page<CaseEntity> result = caseRepository.findAll(spec, pageable);
 
         return HomeDashboardResponse.builder()
                 .dashboard(HomeDashboardResponse.Dashboard.builder()
@@ -94,7 +92,7 @@ public class CaseService {
         User user = userRepository.findById(userId).orElseThrow();
 
         CaseType paredType = parseTypeOrNull(req.getType());
-        Case newCase = Case.builder()
+        CaseEntity newCase = CaseEntity.builder()
                 .user(user) // 담당자 = 생성자
                 .title(req.getTitle())
                 .description(req.getDescription())
@@ -105,7 +103,7 @@ public class CaseService {
                 .summary(null)
                 .build();
 
-        Case saved = caseRepository.save(newCase);
+        CaseEntity saved = caseRepository.save(newCase);
 
         // AI 호출 내용 - 구조화 요약 실패해도 사건 생성됨
         try {
@@ -140,7 +138,7 @@ public class CaseService {
 
         CaseType parsedType = parseTypeOrNull(type);
 
-        Specification<Case> spec = Specification.where(CaseSpecifications.assigneeIs(user.getUserId()))
+        Specification<CaseEntity> spec = Specification.where(CaseSpecifications.assigneeIs(user.getUserId()))
                 .and(CaseSpecifications.titleKeyword(keyword))
                 .and(CaseSpecifications.typeEquals(parsedType))
                 .and(CaseSpecifications.occuredAtBetween(startOccuredAt, endOccuredAt));
@@ -154,7 +152,7 @@ public class CaseService {
                 Sort.by(Sort.Direction.DESC, "updatedAt")
         );
 
-        Page<Case> result = caseRepository.findAll(spec, pageable);
+        Page<CaseEntity> result = caseRepository.findAll(spec, pageable);
         return CaseListResponse.builder()
                 .cases(result.getContent().stream().map(this::toSummary).toList())
                 .info(PageInfo.builder()
@@ -179,7 +177,7 @@ public class CaseService {
 
         CaseType parsedType = parseTypeOrNull(type);
 
-        Specification<Case> spec = Specification.where(
+        Specification<CaseEntity> spec = Specification.where(
                         CaseSpecifications.assigneeJurisdictionEquals(user.getJurisdictionStation())
                 )
                 .and(CaseSpecifications.titleKeyword(keyword))
@@ -195,7 +193,7 @@ public class CaseService {
                 Sort.by(Sort.Direction.DESC, "updatedAt")
         );
 
-        Page<Case> result = caseRepository.findAll(spec, pageable);
+        Page<CaseEntity> result = caseRepository.findAll(spec, pageable);
 
         return CaseListResponse.builder()
                 .cases(result.getContent().stream().map(this::toSummary).toList())
@@ -214,7 +212,7 @@ public class CaseService {
     public TabAwareResponse<CaseDetailResponse> getCaseDetail(UUID caseId, UUID userId) {
 
         User user = userRepository.findById(userId).orElseThrow();
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
 
         boolean isAssignee = aCase.getUser().getUserId().equals(user.getUserId());
         boolean sameJurisdiction = aCase.getUser().getJurisdictionStation().equals(user.getJurisdictionStation());
@@ -240,7 +238,7 @@ public class CaseService {
     @Transactional
     public TabAwareResponse<CaseDetailResponse> updateCaseDescription(UUID caseId, UpdateCaseDescriptionRequest req, UUID userId) {
 
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
         if(!isAssignee) throw new RuntimeException("담당자만 수정할 수 있습니다.");
@@ -261,7 +259,7 @@ public class CaseService {
     @Transactional
     public TabAwareResponse<CaseDetailResponse> updateCaseStatus(UUID caseId, UpdateCaseStatusRequest req, UUID userId) {
 
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
         if(!isAssignee) throw new RuntimeException("담당자만 상태 변경이 가능합니다.");
@@ -282,7 +280,7 @@ public class CaseService {
     @Transactional
     public void deleteCase(UUID caseId, UUID userId) {
 
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
         if(!isAssignee) throw new RuntimeException("담당자만 삭제할 수 있습니다.");
@@ -295,7 +293,7 @@ public class CaseService {
     @Transactional
     public TabAwareResponse<CaseDetailResponse> changeAssignee(UUID caseId, UpdateCaseAssigneeRequest req, UUID userId) {
 
-        Case aCase = caseRepository.findById(caseId).orElseThrow();
+        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         User newAssignee = userRepository.findById(req.getAssigneeUserId()).orElseThrow();
 
         aCase.updateUser(newAssignee);
@@ -310,7 +308,7 @@ public class CaseService {
     }
 
 
-    private CaseDetailResponse toDetail(Case c, boolean canEdit) {
+    private CaseDetailResponse toDetail(CaseEntity c, boolean canEdit) {
         return CaseDetailResponse.builder()
                 .caseId(c.getCaseId())
                 .assigneeUserId(c.getUser().getUserId())
@@ -330,7 +328,7 @@ public class CaseService {
                 .build();
     }
 
-    private CaseSummaryResponse toSummary(Case c) {
+    private CaseSummaryResponse toSummary(CaseEntity c) {
         return CaseSummaryResponse.builder()
                 .caseId(c.getCaseId())
                 .title(c.getTitle())

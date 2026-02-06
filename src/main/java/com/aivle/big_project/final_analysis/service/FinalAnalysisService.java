@@ -1,8 +1,7 @@
 package com.aivle.big_project.final_analysis.service;
 
-import com.aivle.big_project.cases.entity.Case;
+import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.repository.CaseRepository;
-import com.aivle.big_project.final_analysis.dto.AiFinalAnalysisResponse;
 import com.aivle.big_project.final_analysis.dto.FinalAnalysisResponse;
 import com.aivle.big_project.final_analysis.entity.FinalAnalysis;
 import com.aivle.big_project.final_analysis.entity.RecommendedDecision;
@@ -24,7 +23,7 @@ public class FinalAnalysisService {
 
     @Transactional
     public FinalAnalysisResponse create(UUID caseId, UUID userId) {
-        Case aCase = caseRepository.findById(caseId)
+        CaseEntity aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new RuntimeException("사건이 없습니다."));
         assertAssignee(aCase, userId);
 
@@ -60,7 +59,7 @@ public class FinalAnalysisService {
         }
     }
 
-    private void assertAssignee(Case aCase, UUID userId) {
+    private void assertAssignee(CaseEntity aCase, UUID userId) {
         if (aCase.getUser() == null || aCase.getUser().getUserId() == null) {
             throw new RuntimeException("사건 담당자 정보가 없습니다.");
         }

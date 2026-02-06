@@ -1,5 +1,6 @@
 package com.aivle.big_project.keyStatement.entity;
 
+import com.aivle.big_project.transcript.entity.TranscriptEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,11 +20,12 @@ public class KeyStatementEntity {
     @Column(name = "statement_id")
     private UUID statementId;
 
-    @Column(name = "analysis_id", nullable = false)
-    private UUID analysisId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transcript_id", nullable = false)
+    private TranscriptEntity transcript;
 
-    @Column(name = "content", nullable = false)
-    private String content;
+    @Column(name = "statement_text", nullable = false)
+    private String statementText;
 
     @Column(name = "description")
     private String description;

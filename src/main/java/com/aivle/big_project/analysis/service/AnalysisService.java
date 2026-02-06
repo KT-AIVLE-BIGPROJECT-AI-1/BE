@@ -5,6 +5,8 @@ import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.analysis.entity.AnalysisStatus;
 import com.aivle.big_project.analysis.repository.AnalysisRepository;
 import com.aivle.big_project.keyStatement.repository.KeyStatementRepository;
+import com.aivle.big_project.transcript.entity.TranscriptEntity;
+import com.aivle.big_project.transcript.repository.TranscriptRepository;
 import com.aivle.big_project.videoEvent.repository.VideoEventRepository;
 import com.aivle.big_project.global.exception.CustomException;
 import com.aivle.big_project.global.exception.ErrorCode;
@@ -25,6 +27,7 @@ public class AnalysisService {
     private final AnalysisRepository analysisRepository;
     private final KeyStatementRepository keyStatementRepository;
     private final VideoEventRepository videoEventRepository;
+    private final TranscriptRepository transcriptRepository;
 
     // 분석 상태 조회
     public AnalysisStatusResponse getStatus(UUID analysisId) {
@@ -66,12 +69,24 @@ public class AnalysisService {
     }
 
     private AnalysisDetailResponse buildAudio(AnalysisEntity analysis) {
+
+        List<TranscriptEntity> transcripts =
+                transcriptRepository.findAllByAnalysis_AnalysisIdOrderByCreatedAtAsc(analysis.getAnalysisId());
+
+        if (transcripts.isEmpty()) {
+            throw new CustomException(ErrorCode.TRANSCRIPT_NOT_FOUND);
+        }
+
         List<KeyStatementResponse> statements =
-                keyStatementRepository.findByAnalysisId(analysis.getAnalysisId())
-                        .stream()
+                transcripts.stream()
+                        .flatMap(t ->
+                                keyStatementRepository
+                                        .findByTranscript_TranscriptId(t.getTranscriptId())
+                                        .stream()
+                        )
                         .map(s -> new KeyStatementResponse(
                                 s.getStatementId(),
-                                s.getContent(),
+                                s.getStatementText(),
                                 s.getDescription(),
                                 s.getCreatedAt()
                         ))

@@ -16,7 +16,7 @@ import java.util.UUID;
 @Table(name = "CASES")
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Case {
+public class CaseEntity {
 
     @Id @UuidGenerator
     @Column(name = "case_id", columnDefinition = "uuid")

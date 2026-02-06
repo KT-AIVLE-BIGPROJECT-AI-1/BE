@@ -49,6 +49,23 @@ public enum ErrorCode {
             "파일 업로드 중 오류가 발생했습니다."
     ),
 
+    // transcript
+    TRANSCRIPT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 전사입니다."
+    ),
+
+    // contradiction
+    CONTRADICTION_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 모순입니다."
+    ),
+
+    INVALID_CONTRADICTION_STATUS_TRANSITION(
+            HttpStatus.CONFLICT,
+            "현재 상태에서는 해당 상태로 변경할 수 없습니다."
+    ),
+
     // analysis
     ANALYSIS_NOT_FOUND(
             HttpStatus.NOT_FOUND,
@@ -57,6 +74,10 @@ public enum ErrorCode {
     ANALYSIS_NOT_COMPLETED(
             HttpStatus.CONFLICT,
             "분석이 완료되지 않았습니다."
+    ),
+    NOT_AUDIO_ANALYSIS(
+            HttpStatus.BAD_REQUEST,
+            "음성 자료에 대한 분석 결과만 전사 조회가 가능합니다."
     );
 
     private final HttpStatus status;

@@ -1,6 +1,4 @@
 spring:
-  application:
-    name: big-project
   datasource:
     url: ${DB_URL:}
     username: ${DB_USERNAME:}
@@ -27,3 +25,4 @@ logging:
   level:
     org.hibernate.sql: debug
     org.hibernate.jdbc.bind: trace
+    
