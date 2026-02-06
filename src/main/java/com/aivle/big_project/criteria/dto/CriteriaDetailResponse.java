@@ -1,12 +1,16 @@
 package com.aivle.big_project.criteria.dto;
 
 import lombok.*;
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.annotation.JsonNaming;
+
 import java.util.List;
 import java.util.UUID;
 
 @Getter
 @AllArgsConstructor
 @Builder
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CriteriaDetailResponse {
     private UUID criteriaId;
     private String criterionText;

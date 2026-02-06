@@ -1,12 +1,29 @@
 spring:
+  application:
+    name: big-project
   datasource:
-    url: jdbc:postgresql://localhost:5432/big_project
-    username: postgres
-    password: dusdndusdn
-
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-
+    url: jdbc:postgresql://{DB_IP_ADDRESS}:{PORT_NUM}/{TABLE_NAME}
+    username:
+    password:
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+    open-in-view: false
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+jwt:
+  secret: ${JWT_SECRET:test-secret}
+  access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
+  refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
+
+logging:
+  level:
+    org.hibernate.sql: debug
+    org.hibernate.jdbc.bind: trace
