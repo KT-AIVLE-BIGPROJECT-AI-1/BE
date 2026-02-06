@@ -22,5 +22,4 @@ public class FinalAnalysisResponse {
         private String remainingRiskSummary;
 
         private Instant createdAt;
-    }
 }
