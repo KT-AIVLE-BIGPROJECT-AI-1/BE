@@ -2,6 +2,7 @@ version: 0.2
 
 env:
   variables:
+    ACCOUNT_ID: 434457119583
     ECR_REPO: aivle0101/be-repository
     AWS_REGION: ap-northeast-2
 phases:
@@ -9,8 +10,6 @@ phases:
     commands:
       - echo "‣ Pre-Build phase"
       - echo "Logging in to Amazon ECR..."
-      - ACCOUNT_ID=$(aws sts get-caller-identity --query account --output text)
-      - echo "ACCOUNT_ID=$ACCOUNT_ID"
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
       - REPOSITORY_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO
