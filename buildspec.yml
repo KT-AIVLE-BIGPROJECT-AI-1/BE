@@ -1,18 +1,29 @@
 version: 0.2
 
+env:
+  variables:
+    ECR_REPO: aivle0101/be-repository
+    AWS_REGION: ap-northeast-2
 phases:
-  install:
+  pre_build:
     commands:
-      - echo "Install phase"
-      # Gradle wrapper 실행 권한 보장
+      - echo "‣ Pre-Build phase"
+      - echo "Logging in to Amazon ECR..."
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query account --output text)
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - REPOSITORY_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION}
       - chmod +x ./gradlew
   build:
     commands:
-      - echo "Build phase"
-      - ./gradlew clean test
-      - ./gradlew bootJar
+      - echo "‣ Build phase"
+      - ./gradlew clean bootJar -x test
+      - docker build -t $REPOSITORY_URI:$IMAGE_TAG .
+  post_build:
+    commands:
+      - docker build -t $REPOSITORY_URI:$IMAGE_TAG
 
 artifacts:
   files:
-    # Spring Boot JAR 산출물
-    - build/libs/*.jar
+    - '**/*'
