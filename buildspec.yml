@@ -5,6 +5,7 @@ env:
     ACCOUNT_ID: 434457119583
     ECR_REPO: aivle0101/be-repository
     AWS_REGION: ap-northeast-2
+    ECS_CONTAINER_NAME: be-container
 phases:
   pre_build:
     commands:
@@ -23,7 +24,8 @@ phases:
   post_build:
     commands:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$ECS_CONTAINER_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
 
 artifacts:
   files:
-    - '**/*'
+    - imagedefinitions.json
