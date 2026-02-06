@@ -22,7 +22,7 @@ phases:
       - docker build -t $REPOSITORY_URI:$IMAGE_TAG .
   post_build:
     commands:
-      - docker build -t $REPOSITORY_URI:$IMAGE_TAG .
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
 
 artifacts:
   files:
