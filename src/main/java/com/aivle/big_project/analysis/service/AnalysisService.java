@@ -63,7 +63,7 @@ public class AnalysisService {
     private AnalysisDetailResponse buildDocumentImage(AnalysisEntity analysis) {
         return new AnalysisDetailResponse(
                 analysis.getAnalysisId(),
-                analysis.getFile().getFileType().name(),
+                analysis.getFile().getFileType(),
                 new DocumentImageAnalysisData(analysis.getResultData())
         );
     }
@@ -94,7 +94,7 @@ public class AnalysisService {
 
         return new AnalysisDetailResponse(
                 analysis.getAnalysisId(),
-                analysis.getFile().getFileType().name(),
+                analysis.getFile().getFileType(),
                 new AudioAnalysisData(
                         analysis.getResultData(),
                         statements
@@ -118,7 +118,7 @@ public class AnalysisService {
 
         return new AnalysisDetailResponse(
                 analysis.getAnalysisId(),
-                analysis.getFile().getFileType().name(),
+                analysis.getFile().getFileType(),
                 new VideoAnalysisData(
                         analysis.getResultData(),
                         events

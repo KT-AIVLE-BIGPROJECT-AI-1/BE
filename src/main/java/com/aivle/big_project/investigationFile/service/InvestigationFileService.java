@@ -198,35 +198,8 @@ public class InvestigationFileService {
             UUID caseId,
             String type
     ) {
-        List<InvestigationFileEntity> entities;
-
-        if (type != null) {
-            FileType fileType;
-            try {
-                fileType = FileType.valueOf(type);
-            } catch (IllegalArgumentException e) {
-                throw new CustomException(ErrorCode.INVALID_FILE_TYPE);
-            }
-
-            entities = investigationFileRepository
-                    .findByCaseIdAndFileTypeOrderByCreatedAtDesc(
-                            caseId,
-                            fileType
-                    );
-        } else {
-            entities = investigationFileRepository
-                    .findByCaseIdOrderByCreatedAtDesc(caseId);
-        }
-
         List<InvestigationFileListItem> data =
-                entities.stream()
-                        .map(e -> new InvestigationFileListItem(
-                                e.getFileId(),
-                                e.getFileType().name(),
-                                e.getOriginName(),
-                                e.getCreatedAt()
-                        ))
-                        .collect(Collectors.toList());
+                investigationFileRepository.findFileListWithAnalysis(caseId);
 
         return new InvestigationFileListResponse(data);
     }
