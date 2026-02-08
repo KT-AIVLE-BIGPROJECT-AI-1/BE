@@ -6,6 +6,12 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
 
+    // case
+    CASE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 사건입니다."
+    ),
+
     // criteria
     CRITERIA_NOT_FOUND(
             HttpStatus.NOT_FOUND,
