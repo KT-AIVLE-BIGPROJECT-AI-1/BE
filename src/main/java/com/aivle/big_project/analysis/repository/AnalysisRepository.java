@@ -33,4 +33,18 @@ public interface AnalysisRepository extends JpaRepository<AnalysisEntity, UUID> 
             @Param("fileType") FileType fileType,
             @Param("status") AnalysisStatus status
     );
+
+    @Query("""
+        select count(a) > 0
+        from AnalysisEntity a
+        join a.file f
+        where f.caseId = :caseId
+          and f.fileType = :fileType
+          and a.status = :status
+    """)
+    boolean existsCompletedAnalysisByCaseIdAndType(
+            @Param("caseId") UUID caseId,
+            @Param("fileType") FileType fileType,
+            @Param("status") AnalysisStatus status
+    );
 }
