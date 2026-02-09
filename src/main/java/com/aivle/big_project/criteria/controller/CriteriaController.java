@@ -30,14 +30,12 @@ public class CriteriaController {
     @GetMapping("/{criteriaId}")
     public ResponseEntity<CriteriaDetailResponse> getCriteriaDetail(
             @PathVariable UUID caseId,
-            @PathVariable UUID criteriaId,
-            @RequestParam String evaluationStatus
+            @PathVariable UUID criteriaId
     ) {
         return ResponseEntity.ok(
                 criteriaService.getCriteriaDetail(
                         caseId,
-                        criteriaId,
-                        evaluationStatus
+                        criteriaId
                 )
         );
     }
