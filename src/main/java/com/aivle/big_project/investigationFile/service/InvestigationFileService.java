@@ -8,6 +8,7 @@ import com.aivle.big_project.investigationFile.dto.InvestigationFileResponse;
 import com.aivle.big_project.investigationFile.entity.FileType;
 import com.aivle.big_project.investigationFile.entity.InvestigationFileEntity;
 import com.aivle.big_project.investigationFile.repository.InvestigationFileRepository;
+import com.aivle.big_project.storage.ObjectStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 public class InvestigationFileService {
 
     private final InvestigationFileRepository investigationFileRepository;
+    private final ObjectStorageService objectStorageService;
 
     private static final long DOC_MAX   = 20 * 1024 * 1024;
     private static final long IMG_MAX   = 10 * 1024 * 1024;
@@ -91,31 +93,23 @@ public class InvestigationFileService {
         }
 
         // 임시 로컬 저장!!!!!
-        String filePath = saveToLocal(caseId, file);
+//        String filePath = saveToLocal(caseId, file);
 
-        // S3 연동시 사용 예정!!!!!
-        /*
-        String filePath = "cases/" + caseId + "/" + originName;
-
-        s3Client.putObject(
-            PutObjectRequest.builder()
-                .bucket(bucket)
-                .key(filePath)
-                .contentType(file.getContentType())
-                .build(),
-            RequestBody.fromInputStream(
-                file.getInputStream(),
-                file.getSize()
-            )
-        );
-        */
+        // S3 저장 (DB에는 S3 key를 filePath로 저장)
+        String uploadedKey = null;
+        try {
+            String key = "cases/" + caseId + "/files/" + originName;
+            uploadedKey = objectStorageService.upload(file, key);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED);
+        }
         LocalDateTime now = LocalDateTime.now();
 
         InvestigationFileEntity entity =
                 InvestigationFileEntity.builder()
                         .caseId(caseId)
                         .fileType(fileType)
-                        .filePath(filePath)
+                        .filePath(uploadedKey)
                         .originName(originName)
                         .fileSize(file.getSize())
                         .createdAt(now)

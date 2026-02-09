@@ -9,6 +9,7 @@ import com.aivle.big_project.user.entity.Role;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
-@Service
+@Service @Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
@@ -48,11 +49,18 @@ public class AuthService {
 
         User saved = userRepository.save(user);
 
-        String uploadedPath = null;
+        String uploadedKey = null;
         MultipartFile profileImg = req.getProfileImg();
         if(profileImg != null && !profileImg.isEmpty()) {
-            uploadedPath = objectStorageService.upload(profileImg, "users/profile/" + saved.getUserId());
-            saved.changeProfileImg(uploadedPath);
+            try {
+                // 고정 key : users/{userId}/profile
+                String key = "users/" + saved.getUserId() + "/profile";
+                uploadedKey = objectStorageService.upload(profileImg, key);
+                saved.changeProfileImg(uploadedKey);
+            } catch (Exception e) {
+                // 회원가입은 성공시키고 이미지만 실패
+                log.warn("profile upload failed. user_id={}", saved.getUserId(), e);
+            }
         }
         userRepository.save(saved);
 
@@ -148,8 +156,15 @@ public class AuthService {
         String uploadedPath = null;
         MultipartFile profileImg = req.getProfileImg();
         if(profileImg != null && !profileImg.isEmpty()) {
-            uploadedPath = objectStorageService.upload(profileImg, "users/profile/" + saved.getUserId());
-            saved.changeProfileImg(uploadedPath);
+            try {
+                // 고정 key : users/{userId}/profile
+                String key = "users/" + saved.getUserId() + "/profile";
+                uploadedPath = objectStorageService.upload(profileImg, key);
+                saved.changeProfileImg(uploadedPath);
+            } catch (Exception e) {
+                // 회원가입은 성공시키고 이미지만 실패
+                log.warn("profile upload failed. user_id={}", saved.getUserId(), e);
+            }
         }
         userRepository.save(saved);
 

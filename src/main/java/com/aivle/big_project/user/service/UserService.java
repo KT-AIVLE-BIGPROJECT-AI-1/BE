@@ -6,13 +6,14 @@ import com.aivle.big_project.user.dto.user.UpdateMeRequest;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
-@Service
+@Service @Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
@@ -33,15 +34,21 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow();
 
-        String uploadedPath = null;
+        String uploadedKey = null;
         MultipartFile profileImg = req.getProfileImg();
 
         if(profileImg != null && !profileImg.isEmpty()) {
-            uploadedPath = objectStorageService.upload(profileImg, "users/profile/" + userId);
+            try {
+                String key = "users/" + user.getUserId() + "/profile";
+                uploadedKey = objectStorageService.upload(profileImg, key);
+                user.changeProfileImg(uploadedKey);
+            } catch (Exception e) {
+                log.warn("profile upload failed. user_id={}", user.getUserId(), e);
+            }
         }
 
         user.updateMe(
-                uploadedPath,
+                uploadedKey,
                 req.getPhoneNumber(),
                 req.getJurisdictionStation(),
                 req.getDepartment(),
