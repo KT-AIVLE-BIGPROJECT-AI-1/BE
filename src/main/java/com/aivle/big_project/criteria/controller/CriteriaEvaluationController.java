@@ -30,7 +30,7 @@ public class CriteriaEvaluationController {
         );
     }
 
-    @PutMapping("/{criteriaId}")
+    @PostMapping("/{criteriaId}")
     public ResponseEntity<UpdateCriteriaEvaluationResponse> updateCriteriaEvaluation(
             @PathVariable UUID caseId,
             @PathVariable UUID criteriaId,

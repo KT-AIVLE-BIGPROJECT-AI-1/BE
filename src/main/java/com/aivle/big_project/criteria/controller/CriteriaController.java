@@ -30,25 +30,13 @@ public class CriteriaController {
     @GetMapping("/{criteriaId}")
     public ResponseEntity<CriteriaDetailResponse> getCriteriaDetail(
             @PathVariable UUID caseId,
-            @PathVariable UUID criteriaId,
-            @RequestParam String evaluationStatus
+            @PathVariable UUID criteriaId
     ) {
         return ResponseEntity.ok(
                 criteriaService.getCriteriaDetail(
                         caseId,
-                        criteriaId,
-                        evaluationStatus
+                        criteriaId
                 )
         );
-    }
-
-    // 체크리스트 항목 삭제
-    @DeleteMapping("/{criteriaId}")
-    public ResponseEntity<Void> deleteCriteria(
-            @PathVariable UUID caseId,
-            @PathVariable UUID criteriaId
-    ) {
-        criteriaService.deleteCriteria(caseId, criteriaId);
-        return ResponseEntity.noContent().build();
     }
 }

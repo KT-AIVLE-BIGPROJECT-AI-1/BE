@@ -7,6 +7,7 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -14,7 +15,10 @@ import java.util.UUID;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class UpdateCriteriaEvaluationResponse {
 
+    private UUID evaluationId;
     private UUID criteriaId;
     private CriteriaEvaluationStatus status;
-    private LocalDateTime updatedAt;
+    private String reason;
+    private List<String> evidenceSupplementPoints;
+    private LocalDateTime createdAt;
 }
