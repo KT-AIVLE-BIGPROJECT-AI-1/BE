@@ -1,4 +1,13 @@
 spring:
+  storage:
+    s3:
+      bucket: ${AWS_S3_BUCKET_NAME:}
+      region: ${AWS_S3_REGION:}
+      access-key: ${AWS_ACCESS_KEY_ID:}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:}
+      presign:
+        put-expire-minutes: 10
+        get-expire-minutes: 10
   datasource:
     url: ${DB_URL:}
     username: ${DB_USERNAME:}
@@ -17,7 +26,7 @@ spring:
     property-naming-strategy: SNAKE_CASE
 
 jwt:
-    secret: ${JWT_SECRET:}
+    secret: ${JWT_SECRET:387a0a0c-ebe5-4e8a-be06-ac32b5154c7c}
     access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
     refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
 
