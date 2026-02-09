@@ -8,4 +8,5 @@ public interface ObjectStorageService {
     byte[] download(String uriOrKey);
     void delete(String uriOrKey);
     String presignGetUrl(String uriOrKey);
+    String presignDownloadUrl(String key, String downloadFileName);
 }

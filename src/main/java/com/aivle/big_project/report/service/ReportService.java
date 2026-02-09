@@ -311,8 +311,12 @@ public class ReportService {
             throw new IllegalStateException("임시저장 보고서는 다운로드할 수 없습니다.");
         }
 
-        String url = objectStorageService.presignGetUrl(report.getFilePath());
-        return new ReportDownloadResponse(url, 600);
+        int expiresIn = 600;
+        // attachment 파일명 (확장자는 filePath에 포함된 Key대로)
+        String downloadName = (report.getTitle() == null || report.getTitle().isBlank()) ? ("report-" + report.getReportId()) : report.getTitle();
+
+        String url = objectStorageService.presignDownloadUrl(report.getFilePath(), downloadName);
+        return new ReportDownloadResponse(url, expiresIn);
     }
 
     // 스토리지 저장
