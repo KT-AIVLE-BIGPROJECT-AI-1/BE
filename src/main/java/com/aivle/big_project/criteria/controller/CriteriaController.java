@@ -41,14 +41,4 @@ public class CriteriaController {
                 )
         );
     }
-
-    // 체크리스트 항목 삭제
-    @DeleteMapping("/{criteriaId}")
-    public ResponseEntity<Void> deleteCriteria(
-            @PathVariable UUID caseId,
-            @PathVariable UUID criteriaId
-    ) {
-        criteriaService.deleteCriteria(caseId, criteriaId);
-        return ResponseEntity.noContent().build();
-    }
 }

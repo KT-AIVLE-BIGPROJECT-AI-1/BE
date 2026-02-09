@@ -85,23 +85,4 @@ public class CriteriaService {
         }
         return List.of(evidenceGap.split("\n"));
     }
-
-    @Transactional
-    public void deleteCriteria(UUID caseId, UUID criteriaId) {
-
-        CriteriaEntity criteria = criteriaRepository
-                .findByCaseIdAndCriteriaId(caseId, criteriaId)
-                .orElseThrow(() ->
-                        new CustomException(ErrorCode.CRITERIA_NOT_FOUND)
-                );
-
-        // 분석/평가 결과가 존재하면 삭제 불가
-        if (criteriaEvaluationRepository.existsByCriteria_CriteriaId(criteriaId)) {
-            throw new CustomException(
-                    ErrorCode.CRITERIA_ALREADY_ANALYZED
-            );
-        }
-
-        criteriaRepository.delete(criteria);
-    }
 }
