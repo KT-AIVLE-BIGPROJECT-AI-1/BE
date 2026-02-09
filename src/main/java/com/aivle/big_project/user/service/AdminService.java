@@ -1,5 +1,6 @@
 package com.aivle.big_project.user.service;
 
+import com.aivle.big_project.storage.ObjectStorageService;
 import com.aivle.big_project.user.dto.user.UserDetailResponse;
 import com.aivle.big_project.user.dto.user.UserListResponse;
 import com.aivle.big_project.user.entity.Role;
@@ -26,6 +27,7 @@ import java.util.UUID;
 public class AdminService {
 
     private final UserRepository userRepository;
+    private final ObjectStorageService objectStorageService;
 
     // 사용자 전체 목록 조회
     public UserListResponse listUsers(
@@ -66,7 +68,7 @@ public class AdminService {
                         .jurisdictionStation(u.getJurisdictionStation())
                         .rankName(u.getRankName())
                         .phoneNumber(u.getPhoneNumber())
-                        .profileImg(u.getProfileImg())
+                        .profileImg(toPresignedProfileImgUrl(u.getProfileImg()))
                         .build())
                 .toList();
 
@@ -82,6 +84,11 @@ public class AdminService {
                 .users(users)
                 .info(info)
                 .build();
+    }
+
+    private String toPresignedProfileImgUrl(String key) {
+        if (key == null || key.isBlank()) return null;
+        return objectStorageService.presignGetUrl(key);
     }
 
     private Specification<User> juridictionEquals(String jurisdictionStation) {
@@ -125,7 +132,7 @@ public class AdminService {
                 .email(user.getEmail())
                 .name(user.getName())
                 .role(user.getRole())
-                .profileImg(user.getProfileImg())
+                .profileImg(toPresignedProfileImgUrl(user.getProfileImg()))
                 .jurisdictionStation(user.getJurisdictionStation())
                 .department(user.getDepartment())
                 .rankName(user.getRankName())

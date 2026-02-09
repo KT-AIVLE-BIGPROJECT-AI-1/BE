@@ -7,4 +7,5 @@ public interface ObjectStorageService {
     String upload(MultipartFile file, String keyPrefix);
     byte[] download(String uriOrKey);
     void delete(String uriOrKey);
+    String presignGetUrl(String uriOrKey);
 }

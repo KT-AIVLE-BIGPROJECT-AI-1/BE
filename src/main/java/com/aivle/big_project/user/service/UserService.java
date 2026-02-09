@@ -48,7 +48,7 @@ public class UserService {
         }
 
         user.updateMe(
-                uploadedKey,
+                (uploadedKey != null ? uploadedKey : user.getProfileImg()),
                 req.getPhoneNumber(),
                 req.getJurisdictionStation(),
                 req.getDepartment(),
@@ -58,12 +58,17 @@ public class UserService {
         return toMyDetail(user);
     }
 
+    private String toPresignedProfileImgUrl(String key) {
+        if (key == null || key.isBlank()) return null;
+        return objectStorageService.presignGetUrl(key);
+    }
+
     private MyDetailResponse toMyDetail(User user) {
         return MyDetailResponse.builder()
                 .userId(user.getUserId())
                 .email(user.getEmail())
                 .name(user.getName())
-                .profileImg(user.getProfileImg())
+                .profileImg(toPresignedProfileImgUrl(user.getProfileImg()))
                 .role(user.getRole())
                 .jurisdictionStation(user.getJurisdictionStation())
                 .department(user.getDepartment())

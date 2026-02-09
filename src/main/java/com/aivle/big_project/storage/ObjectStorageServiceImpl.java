@@ -67,12 +67,13 @@ public class ObjectStorageServiceImpl implements ObjectStorageService{
             log.info("[S3-UPLOAD][HEAD_OK] contentLength={}, lastModified={}", head.contentLength(), head.lastModified());
             // DB에는 key만 저장
             return key;
-        } catch (IOException e) {
+        } catch (Exception e) {
+            log.error("[S3-UPLOAD][FAIL] bucket={}, keyPrefix={}, originalName={}", bucket, keyPrefix, file.getOriginalFilename(), e);
             throw new RuntimeException("S3 upload failed", e);
         }
     }
 
-    // (2) 프론트/AI 서버가 내려받을 수 있게 presigned GET 발급
+    // (2-a) 클라이언트 조회 + AI 파일 전송: presigned GET 발급
     public String presignGetUrl(String key) {
         GetObjectRequest getReq = GetObjectRequest.builder()
                 .bucket(bucket)
@@ -86,6 +87,25 @@ public class ObjectStorageServiceImpl implements ObjectStorageService{
 
         PresignedGetObjectRequest presigned = presigner.presignGetObject(presignReq);
         return presigned.url().toString();
+    }
+
+    // (2-b) 클라이언트 다운로드용: Content-Disposition attachment 지정
+    public String presignDownloadUrl(String key, String downloadFileName) {
+        String safe = (downloadFileName == null || downloadFileName.isBlank()) ? "file" : downloadFileName;
+        String encoded = URLEncoder.encode(safe, StandardCharsets.UTF_8);
+
+        GetObjectRequest getReq = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .responseContentDisposition("attachment; filename*=UTF-8''" + encoded)
+                .build();
+
+        GetObjectPresignRequest presignReq = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(getExpireMinutes))
+                .getObjectRequest(getReq)
+                .build();
+
+        return presigner.presignGetObject(presignReq).url().toString();
     }
 
     // (옵션) 백엔드가 직접 다운로드해서 ResponseEntity로 내려줄 때 사용
@@ -113,9 +133,13 @@ public class ObjectStorageServiceImpl implements ObjectStorageService{
 
     private String toKey(String s3UriOrKey) {
         if (s3UriOrKey.startsWith("s3://")) {
+            if (s3UriOrKey == null) return null;
             // s3://bucket/key...
             String withoutScheme = s3UriOrKey.substring("s3://".length());
             int slashIdx = withoutScheme.indexOf('/');
+            if (slashIdx < 0 || slashIdx == withoutScheme.length() - 1) {
+                throw new IllegalArgumentException("Invalid S3 URI: " + s3UriOrKey);
+            }
             return withoutScheme.substring(slashIdx + 1);
         }
         return s3UriOrKey;
