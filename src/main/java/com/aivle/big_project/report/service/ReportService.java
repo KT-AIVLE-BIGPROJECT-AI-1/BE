@@ -14,9 +14,11 @@ import com.aivle.big_project.report.entity.ReportType;
 import com.aivle.big_project.report.repository.ReportRepository;
 import com.aivle.big_project.storage.ObjectStorageService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -299,22 +301,19 @@ public class ReportService {
         return toDetail(report);
     }
 
-//    // 보고서 다운로드
-//    public ReportDownloadResponse getDownloadUrl(UUID reportId) {
-//        Report report = reportRepository.findById(reportId).orElseThrow();
-//
-//        // 임시저장 보고서(status == DRAFT)는 다운로드 불가능
-//        if (report.getStatus() == ReportStatus.DRAFT
-//            || report.getFilePath() == null || report.getFilePath().isBlank()) {
-//            throw new IllegalStateException("임시저장 보고서는 다운로드할 수 없습니다.");
-//        }
-//
-////        S3Path path = S3Path.parse(report.getFilePath());
-//        int expiresSec = 600;
-////        String url = dummyObjectStorageService.presignGetUrl(p.bucket(), p.key(), Duration.ofSeconds(expiresSec));
-//
-//        return new ReportDownloadResponse(url, expiresSec);
-//    }
+    // 보고서 다운로드
+    public ReportDownloadResponse getDownloadUrl(UUID reportId) {
+        Report report = reportRepository.findById(reportId).orElseThrow();
+
+        // 임시저장 보고서(status == DRAFT)는 다운로드 불가능
+        if (report.getStatus() == ReportStatus.DRAFT
+            || report.getFilePath() == null || report.getFilePath().isBlank()) {
+            throw new IllegalStateException("임시저장 보고서는 다운로드할 수 없습니다.");
+        }
+
+        String url = objectStorageService.presignGetUrl(report.getFilePath());
+        return new ReportDownloadResponse(url, 600);
+    }
 
     // 스토리지 저장
     private String generateAndUpload(Report report) {
