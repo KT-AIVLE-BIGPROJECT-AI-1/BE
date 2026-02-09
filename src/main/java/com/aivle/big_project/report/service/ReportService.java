@@ -12,7 +12,7 @@ import com.aivle.big_project.report.entity.Report;
 import com.aivle.big_project.report.entity.ReportStatus;
 import com.aivle.big_project.report.entity.ReportType;
 import com.aivle.big_project.report.repository.ReportRepository;
-import com.aivle.big_project.storage.DummyObjectStorageService;
+import com.aivle.big_project.storage.ObjectStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +29,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final CaseRepository caseRepository;
     private final ActivityLogRepository activityLogRepository;
-    private final DummyObjectStorageService dummyObjectStorageService;
+    private final ObjectStorageService objectStorageService;
     private final FinalAnalysisRepository finalAnalysisRepository;
 
 
