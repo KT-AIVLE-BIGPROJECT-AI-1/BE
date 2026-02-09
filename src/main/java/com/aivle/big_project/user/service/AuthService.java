@@ -1,6 +1,7 @@
 package com.aivle.big_project.user.service;
 
 import com.aivle.big_project.security.service.AuthTokenService;
+import com.aivle.big_project.security.service.JwtTokenService;
 import com.aivle.big_project.security.store.RefreshTokenStore;
 import com.aivle.big_project.storage.ObjectStorageService;
 import com.aivle.big_project.user.dto.auth.*;
@@ -8,6 +9,7 @@ import com.aivle.big_project.user.dto.user.UserDetailResponse;
 import com.aivle.big_project.user.entity.Role;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthTokenService authTokenService;
     private final RefreshTokenStore refreshTokenStore;
+    private final JwtTokenService jwtTokenService;
 
     // 회원가입
     @Transactional
@@ -109,10 +112,20 @@ public class AuthService {
     // 토큰 재발급
     @Transactional
     public TokenResponse refresh(TokenRefreshRequest req) {
-        // refresh token 자체 검증
-        AuthTokenService.Tokens newTokens = authTokenService.refreshTokens(req.getRefreshToken());
 
-        return toAuthTokensResponse(newTokens, null);
+        AuthTokenService.Tokens newTokens =
+                authTokenService.refreshTokens(req.getRefreshToken());
+
+
+        Claims accessClaims = jwtTokenService.parseClaims(newTokens.accessToken());
+        Role role = Role.valueOf(accessClaims.get("role", String.class));
+
+        return TokenResponse.builder()
+                .accessToken(newTokens.accessToken())
+                .refreshToken(newTokens.refreshToken()) // (선택)
+                .role(role)
+                .expiresIn(newTokens.expiresInSeconds())
+                .build();
     }
 
     private TokenResponse toAuthTokensResponse(AuthTokenService.Tokens tokens, Role role) {
