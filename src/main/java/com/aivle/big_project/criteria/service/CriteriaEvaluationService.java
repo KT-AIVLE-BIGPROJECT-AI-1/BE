@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -45,7 +46,7 @@ public class CriteriaEvaluationService {
         return new CriteriaEvaluationStatusResponse(
                 criteria.getCriteriaId(),
                 evaluation.getStatus(),
-                evaluation.getUpdatedAt()
+                evaluation.getCreatedAt()
         );
     }
 
@@ -56,39 +57,45 @@ public class CriteriaEvaluationService {
             UpdateCriteriaEvaluationRequest request
     ) {
 
-        // 1. 사건에 속한 판단 기준인지 검증
         CriteriaEntity criteria = criteriaRepository
                 .findByCaseIdAndCriteriaId(caseId, criteriaId)
-                .orElseThrow(() ->
-                        new CustomException(ErrorCode.CRITERIA_NOT_FOUND)
+                .orElseThrow(() -> new CustomException(ErrorCode.CRITERIA_NOT_FOUND));
+
+        CriteriaEvaluationEntity latest = criteriaEvaluationRepository
+                .findTopByCriteria_CriteriaIdOrderByCreatedAtDesc(criteriaId)
+                .orElse(null);
+
+        String evidenceGap =
+                switch (request.getStatus()) {
+                    case NOT_SATISFIED, INSUFFICIENT -> {
+                        if (request.getEvidenceSupplementPoints() != null) {
+                            yield String.join("\n", request.getEvidenceSupplementPoints());
+                        }
+                        yield latest != null
+                                ? latest.getEvidenceGap()
+                                : null;
+                    }
+                    default -> null;
+                };
+
+        CriteriaEvaluationEntity newEvaluation =
+                criteriaEvaluationRepository.save(
+                        CriteriaEvaluationEntity.builder()
+                                .criteria(criteria)
+                                .status(request.getStatus())
+                                .reason(request.getReason())
+                                .evidenceGap(evidenceGap)
+                                .createdAt(LocalDateTime.now())
+                                .build()
                 );
 
-        // 2. 평가 엔티티 조회 (항상 존재한다고 가정)
-        CriteriaEvaluationEntity evaluation = criteriaEvaluationRepository
-                .findByCriteria_CriteriaId(criteriaId)
-                .orElseThrow(() ->
-                        new CustomException(ErrorCode.CRITERIA_EVALUATION_NOT_FOUND)
-                );
-
-        // 3. 필수값 검증
-        if (request.getStatus() == null || request.getReason().isBlank()) {
-            throw new CustomException(ErrorCode.INVALID_CRITERIA_EVALUATION_REQUEST);
-        }
-
-        // 4. 평가 수정 (🔥 핵심)
-        evaluation.updateEvaluation(
-                request.getStatus(),
-                request.getReason(),
-                request.getEvidenceSupplementPoints() == null
-                        ? null
-                        : String.join("\n", request.getEvidenceSupplementPoints())
-        );
-
-        // 5. 응답
         return new UpdateCriteriaEvaluationResponse(
+                newEvaluation.getEvaluationId(),
                 criteria.getCriteriaId(),
-                evaluation.getStatus(),
-                evaluation.getUpdatedAt()
+                newEvaluation.getStatus(),
+                newEvaluation.getReason(),
+                request.getEvidenceSupplementPoints(),
+                newEvaluation.getCreatedAt()
         );
     }
 }
