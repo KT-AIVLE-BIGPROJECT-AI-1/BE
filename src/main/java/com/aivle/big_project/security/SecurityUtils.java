@@ -21,6 +21,17 @@ public final class SecurityUtils {
         }
     }
 
+    public static UUID getCurrentUserIdOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) return null;
+
+        try {
+            return UUID.fromString(auth.getPrincipal().toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public static boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 

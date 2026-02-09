@@ -1,5 +1,6 @@
 package com.aivle.big_project.security.config;
 
+import com.aivle.big_project.audit_log.service.AuditLoggingFilter;
 import com.aivle.big_project.security.JwtFilter;
 import com.aivle.big_project.security.service.JwtTokenService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtTokenService jwtTokenService;
+    private final AuditLoggingFilter auditLoggingFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -48,7 +50,8 @@ public class SecurityConfig {
                 .addFilterBefore(
                         new JwtFilter(jwtTokenService),
                         UsernamePasswordAuthenticationFilter.class
-                );
+                )
+                .addFilterAfter(auditLoggingFilter, JwtFilter.class);
 
         return http.build();
     }
