@@ -29,17 +29,17 @@ public class CaseSpecifications {
         return (root, query, cb) -> cb.equal(root.get("type"), type);
     }
 
-    public static Specification<CaseEntity> occuredAtBetween(LocalDateTime start, LocalDateTime end) {
+    public static Specification<CaseEntity> occurredAtBetween(LocalDateTime start, LocalDateTime end) {
         if (start == null && end == null) {
             return (root, query, cb) -> cb.conjunction();
         }
         if (start != null && end != null) {
-            return (root, query, cb) -> cb.between(root.get("occuredAt"), start, end);
+            return (root, query, cb) -> cb.between(root.get("occurredAt"), start, end);
         }
         if (start != null) {
-            return (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("occuredAt"), start);
+            return (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("occurredAt"), start);
         }
-        return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("occuredAt"), end);
+        return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("occurredAt"), end);
     }
 
     public static Specification<CaseEntity> assigneeJurisdictionEquals(String jurisdictionStation) {

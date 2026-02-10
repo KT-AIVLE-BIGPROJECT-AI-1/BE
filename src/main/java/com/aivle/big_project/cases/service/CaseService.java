@@ -38,7 +38,7 @@ public class CaseService {
     @Transactional
     public HomeDashboardResponse getHomeDashboard(
             Integer page, Integer size, String keyword, String type,
-            LocalDateTime startOccuredAt, LocalDateTime endOccuredAt,
+            LocalDateTime startOccurredAt, LocalDateTime endOccurredAt,
             UUID userId)
     {
         User user = userRepository.findById(userId).orElseThrow();
@@ -56,7 +56,7 @@ public class CaseService {
         Specification<CaseEntity> spec = Specification.where(CaseSpecifications.assigneeIs(user.getUserId()))
                 .and(CaseSpecifications.titleKeyword(keyword))
                 .and(CaseSpecifications.typeEquals(paredType))
-                .and(CaseSpecifications.occuredAtBetween(startOccuredAt, endOccuredAt));
+                .and(CaseSpecifications.occurredAtBetween(startOccurredAt, endOccurredAt));
 
         int safePage = Math.max(page, 1);
         int safeSize = size <= 0 ? 20 : size;
@@ -98,7 +98,7 @@ public class CaseService {
                 .description(req.getDescription())
                 .type(paredType)
                 .status(CaseStatus.OPEN)
-                .occuredAt(req.getOccuredAt())
+                .occurredAt(req.getOccurredAt())
                 .location(req.getLocation())
                 .summary(null)
                 .build();
@@ -131,7 +131,7 @@ public class CaseService {
     public CaseListResponse listMyCases(
             Integer page, Integer size,
             String keyword, String type,
-            LocalDateTime startOccuredAt, LocalDateTime endOccuredAt,
+            LocalDateTime startOccurredAt, LocalDateTime endOccurredAt,
             UUID userId
     ) {
         User user = userRepository.findById(userId).orElseThrow();
@@ -141,7 +141,7 @@ public class CaseService {
         Specification<CaseEntity> spec = Specification.where(CaseSpecifications.assigneeIs(user.getUserId()))
                 .and(CaseSpecifications.titleKeyword(keyword))
                 .and(CaseSpecifications.typeEquals(parsedType))
-                .and(CaseSpecifications.occuredAtBetween(startOccuredAt, endOccuredAt));
+                .and(CaseSpecifications.occurredAtBetween(startOccurredAt, endOccurredAt));
 
         int safePage = (page == null) ? 1 : Math.max(page, 1);
         int safeSize = (size == null || size <= 0) ? 20 : size;
@@ -170,7 +170,7 @@ public class CaseService {
     public CaseListResponse listJurisdictionCases(
             Integer page, Integer size,
             String keyword, String type,
-            LocalDateTime startOccuredAt, LocalDateTime endOccuredAt,
+            LocalDateTime startOccurredAt, LocalDateTime endOccurredAt,
             UUID userId
     ) {
         User user = userRepository.findById(userId).orElseThrow();
@@ -182,7 +182,7 @@ public class CaseService {
                 )
                 .and(CaseSpecifications.titleKeyword(keyword))
                 .and(CaseSpecifications.typeEquals(parsedType))
-                .and(CaseSpecifications.occuredAtBetween(startOccuredAt, endOccuredAt));
+                .and(CaseSpecifications.occurredAtBetween(startOccurredAt, endOccurredAt));
 
         int safePage = (page == null) ? 1 : Math.max(page, 1);
         int safeSize = (size == null || size <= 0) ? 20 : size;
@@ -320,7 +320,7 @@ public class CaseService {
                 .summary(c.getSummary())
                 .type(c.getType().name())
                 .status(c.getStatus().name())
-                .occuredAt(c.getOccuredAt())
+                .occurredAt(c.getOccurredAt())
                 .location(c.getLocation())
                 .canEdit(canEdit)
                 .createdAt(c.getCreatedAt())
@@ -334,7 +334,7 @@ public class CaseService {
                 .title(c.getTitle())
                 .type(c.getType().name())
                 .status(c.getStatus().name())
-                .occuredAt(c.getOccuredAt())
+                .occurredAt(c.getOccurredAt())
                 .location(c.getLocation())
                 .assigneeUserId(c.getUser().getUserId())
                 .assigneeName(c.getUser().getName())

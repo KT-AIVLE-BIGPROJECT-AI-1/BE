@@ -5,5 +5,6 @@ public enum CaseType {
     TRAFFIC,    // 교통
     THEFT,      // 절도
     ASSAULT,    // 폭행
+    MURDER,     // 살인
     OTHER       // 기타
 }
