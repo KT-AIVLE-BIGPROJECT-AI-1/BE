@@ -16,6 +16,6 @@ public class TabFlags {
     @JsonProperty("has_video_files")
     private boolean hasVideoFiles; // 영상분석
 
-    @JsonProperty("has_reports")
-    private boolean hasReports; // 보고서
+    @JsonProperty("has_finalAnalysis")
+    private boolean hasFinalAnalysis; // 보고서
 }
