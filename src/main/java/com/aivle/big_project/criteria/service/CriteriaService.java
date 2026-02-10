@@ -31,32 +31,32 @@ public class CriteriaService {
         );
     }
 
-    //체크리스트 상세 조회
+    // 체크리스트 상세 조회 (최신 평가 기준)
     public CriteriaDetailResponse getCriteriaDetail(
             UUID caseId,
-            UUID criteriaId,
-            String evaluationStatus
+            UUID criteriaId
     ) {
         // 1️⃣ criteria가 해당 case에 속하는지 검증
         CriteriaEntity criteria = criteriaRepository
                 .findByCaseIdAndCriteriaId(caseId, criteriaId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 법리 판단 기준입니다."));
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.CRITERIA_NOT_FOUND)
+                );
 
         // 2️⃣ 쟁점 조회
         LegalIssueEntity issue = criteria.getLegalIssue();
 
-        // 3️⃣ 평가 조회
+        // 3️⃣ 최신 평가 조회 (createdAt DESC)
         CriteriaEvaluationEntity evaluation = criteriaEvaluationRepository
-                .findByCriteria_CriteriaId(criteriaId)
-                .orElseThrow(() -> new IllegalArgumentException("평가 정보가 존재하지 않습니다."));
+                .findTopByCriteria_CriteriaIdOrderByCreatedAtDesc(criteriaId)
+                .orElseThrow(() ->
+                        new IllegalStateException("평가 정보가 존재하지 않습니다.")
+                );
 
-        // 4️⃣ 상태 분기
-        CriteriaEvaluationStatus requestStatus =
-                CriteriaEvaluationStatus.valueOf(evaluationStatus);
+        CriteriaEvaluationStatus status = evaluation.getStatus();
+        boolean satisfied = status == CriteriaEvaluationStatus.SATISFIED;
 
-        boolean satisfied = requestStatus == CriteriaEvaluationStatus.SATISFIED;
-
-        // 5️⃣ DTO 조립
+        // 4️⃣ DTO 조립
         return CriteriaDetailResponse.builder()
                 .criteriaId(criteria.getCriteriaId())
                 .criterionText(criteria.getCriterionText())
@@ -69,10 +69,12 @@ public class CriteriaService {
                 ))
                 .evaluation(
                         CriteriaDetailResponse.EvaluationInfo.builder()
-                                .status(requestStatus.name())
+                                .status(status.name())
                                 .reason(evaluation.getReason())
                                 .evidenceSupplementPoints(
-                                        satisfied ? null : splitEvidenceGap(evaluation.getEvidenceGap())
+                                        satisfied
+                                                ? null
+                                                : splitEvidenceGap(evaluation.getEvidenceGap())
                                 )
                                 .build()
                 )
@@ -81,7 +83,7 @@ public class CriteriaService {
 
     private List<String> splitEvidenceGap(String evidenceGap) {
         if (evidenceGap == null || evidenceGap.isBlank()) {
-            return List.of();
+            return null;
         }
         return List.of(evidenceGap.split("\n"));
     }

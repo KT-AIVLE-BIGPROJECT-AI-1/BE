@@ -5,6 +5,7 @@ import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationRequest;
 import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationResponse;
 import com.aivle.big_project.criteria.entity.CriteriaEntity;
 import com.aivle.big_project.criteria.entity.CriteriaEvaluationEntity;
+import com.aivle.big_project.criteria.entity.CriteriaEvaluationStatus;
 import com.aivle.big_project.criteria.repository.CriteriaEvaluationRepository;
 import com.aivle.big_project.criteria.repository.CriteriaRepository;
 import com.aivle.big_project.global.exception.CustomException;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -35,13 +37,12 @@ public class CriteriaEvaluationService {
                         new CustomException(ErrorCode.CRITERIA_NOT_FOUND)
                 );
 
-        CriteriaEvaluationEntity evaluation = criteriaEvaluationRepository
-                .findByCriteria_CriteriaId(criteriaId)
-                .orElseThrow(() ->
-                        new IllegalStateException(
-                                "CriteriaEvaluationEntity must exist for criteriaId=" + criteriaId
-                        )
-                );
+        CriteriaEvaluationEntity evaluation =
+                criteriaEvaluationRepository
+                        .findByCriteria_CriteriaIdOrderByCreatedAtDesc(criteriaId)
+                        .stream()
+                        .findFirst()
+                        .orElseThrow(() -> new CustomException(ErrorCode.CRITERIA_EVALUATION_NOT_FOUND));
 
         return new CriteriaEvaluationStatusResponse(
                 criteria.getCriteriaId(),
@@ -61,9 +62,12 @@ public class CriteriaEvaluationService {
                 .findByCaseIdAndCriteriaId(caseId, criteriaId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CRITERIA_NOT_FOUND));
 
-        CriteriaEvaluationEntity latest = criteriaEvaluationRepository
-                .findTopByCriteria_CriteriaIdOrderByCreatedAtDesc(criteriaId)
-                .orElse(null);
+        CriteriaEvaluationEntity latest =
+                criteriaEvaluationRepository
+                        .findByCriteria_CriteriaIdOrderByCreatedAtDesc(criteriaId)
+                        .stream()
+                        .findFirst()
+                        .orElse(null);
 
         String evidenceGap =
                 switch (request.getStatus()) {
@@ -71,7 +75,9 @@ public class CriteriaEvaluationService {
                         if (request.getEvidenceSupplementPoints() != null) {
                             yield String.join("\n", request.getEvidenceSupplementPoints());
                         }
-                        yield latest != null
+                        yield (latest != null &&
+                                (latest.getStatus() == CriteriaEvaluationStatus.NOT_SATISFIED
+                                        || latest.getStatus() == CriteriaEvaluationStatus.INSUFFICIENT))
                                 ? latest.getEvidenceGap()
                                 : null;
                     }
@@ -94,8 +100,15 @@ public class CriteriaEvaluationService {
                 criteria.getCriteriaId(),
                 newEvaluation.getStatus(),
                 newEvaluation.getReason(),
-                request.getEvidenceSupplementPoints(),
+                splitEvidenceGap(newEvaluation.getEvidenceGap()),
                 newEvaluation.getCreatedAt()
         );
+    }
+
+    private List<String> splitEvidenceGap(String evidenceGap) {
+        if (evidenceGap == null || evidenceGap.isBlank()) {
+            return null;
+        }
+        return List.of(evidenceGap.split("\n"));
     }
 }
