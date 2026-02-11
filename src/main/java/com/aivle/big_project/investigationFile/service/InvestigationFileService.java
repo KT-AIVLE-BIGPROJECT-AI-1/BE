@@ -1,5 +1,6 @@
 package com.aivle.big_project.investigationFile.service;
 
+import com.aivle.big_project.analysis.service.AnalysisService;
 import com.aivle.big_project.global.exception.CustomException;
 import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.investigationFile.dto.InvestigationFileListItem;
@@ -10,6 +11,7 @@ import com.aivle.big_project.investigationFile.entity.InvestigationFileEntity;
 import com.aivle.big_project.investigationFile.repository.InvestigationFileRepository;
 import com.aivle.big_project.storage.ObjectStorageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,16 +27,17 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service @Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class InvestigationFileService {
 
     private final InvestigationFileRepository investigationFileRepository;
     private final ObjectStorageService objectStorageService;
+    private final AnalysisService analysisService;
 
     private static final long DOC_MAX   = 20 * 1024 * 1024;
-    private static final long IMG_MAX   = 10 * 1024 * 1024;
+    private static final long IMG_MAX   = 50 * 1024 * 1024;
     private static final long AUDIO_MAX = 100 * 1024 * 1024;
     private static final long VIDEO_MAX = 500 * 1024 * 1024;
 
@@ -49,10 +52,19 @@ public class InvestigationFileService {
         }
 
         List<InvestigationFileResponse> results = new ArrayList<>();
+        List<UUID> uploadFileIds = new ArrayList<>();
 
         // 각 파일을 순차적으로 처리
         for (MultipartFile file : files) {
-            results.add(uploadSingle(caseId, file));
+            InvestigationFileResponse resp = uploadSingle(caseId, file);
+            results.add(resp);
+            uploadFileIds.add(resp.getFileId());
+        }
+        // 모든 파일 업로드/저장 완료 후 AI 배치 분석 요청 (실패해도 업로드는 성공 처리)
+        try {
+            analysisService.requestInvestigationFilesAnalysis(caseId, uploadFileIds);
+        } catch (Exception e) {
+            log.warn("자료 파일 분석 요청에 실패했습니다. caseId={}, reason={}", caseId, e.getMessage(), e);
         }
 
         return results;
@@ -100,6 +112,7 @@ public class InvestigationFileService {
         try {
             String key = "cases/" + caseId + "/files/" + originName;
             uploadedKey = objectStorageService.upload(file, key);
+            log.info("자료 파일 업로드 완료. (S3) caseId={}, originName={}", caseId, originName);
         } catch (Exception e) {
             throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED);
         }
