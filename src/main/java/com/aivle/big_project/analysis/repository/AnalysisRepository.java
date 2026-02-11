@@ -3,6 +3,7 @@ package com.aivle.big_project.analysis.repository;
 import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.analysis.entity.AnalysisStatus;
 import com.aivle.big_project.investigationFile.entity.FileType;
+import com.aivle.big_project.investigationFile.entity.InvestigationFileEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -47,4 +48,6 @@ public interface AnalysisRepository extends JpaRepository<AnalysisEntity, UUID> 
             @Param("fileType") FileType fileType,
             @Param("status") AnalysisStatus status
     );
+
+    Optional<AnalysisEntity> findByFile(InvestigationFileEntity f);
 }

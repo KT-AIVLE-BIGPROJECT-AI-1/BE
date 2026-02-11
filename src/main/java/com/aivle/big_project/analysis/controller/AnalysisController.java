@@ -1,11 +1,15 @@
 package com.aivle.big_project.analysis.controller;
 
+import com.aivle.big_project.ai.dto.analysis.AiCallbackRequest;
 import com.aivle.big_project.analysis.dto.AnalysisDetailResponse;
 import com.aivle.big_project.analysis.dto.AnalysisStatusResponse;
 import com.aivle.big_project.analysis.service.AnalysisService;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.JsonNode;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -31,5 +35,17 @@ public class AnalysisController {
             @PathVariable UUID analysisId
     ) {
         return analysisService.getAnalysisDetail(analysisId);
+    }
+
+    // 파일 분석 CallBack
+    @PostMapping("/{analysisId}/callback")
+    public ResponseEntity<?> fileAnalysisCallBack(
+            @PathVariable UUID caseId,
+            @PathVariable UUID analysisId,
+            @RequestBody AiCallbackRequest request
+    ) {
+        System.out.println(request.toString());
+        analysisService.handleStageCallback(caseId, analysisId, request);
+        return ResponseEntity.ok(Map.of("message", "Callback Received"));
     }
 }

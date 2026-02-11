@@ -61,15 +61,37 @@ public enum ErrorCode {
             "존재하지 않는 전사입니다."
     ),
 
+    // key-statement
+    INVALID_KEY_STATEMENT_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 잘못된 Key-Statement Payload 형태입니다."
+    ),
+
     // contradiction
     CONTRADICTION_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "존재하지 않는 모순입니다."
     ),
+    INVALID_CONTRADICTION_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 잘못된 Contradiction Payload 형태입니다."
+    ),
 
     INVALID_CONTRADICTION_STATUS_TRANSITION(
             HttpStatus.CONFLICT,
             "현재 상태에서는 해당 상태로 변경할 수 없습니다."
+    ),
+
+    // question
+    INVALID_QUESTION_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 잘못된 Question Payload 형태입니다."
+    ),
+
+    // video-event
+    INVALID_VIDEO_EVENT_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 잘못된 VideoEvent Payload 형태입니다."
     ),
 
     // analysis
@@ -84,7 +106,16 @@ public enum ErrorCode {
     NOT_AUDIO_ANALYSIS(
             HttpStatus.BAD_REQUEST,
             "음성 자료에 대한 분석 결과만 전사 조회가 가능합니다."
-    );
+    ),
+    INVALID_STAGE_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 지정되지 않은 응답 Stage 타입입니다."
+    ),
+    JSON_PARSE_ERROR(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Analysis 정보 업데이트 도중 Json 파싱에 실패했습니다."
+    )
+    ;
 
     private final HttpStatus status;
     private final String message;
