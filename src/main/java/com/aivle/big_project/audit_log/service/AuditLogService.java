@@ -15,7 +15,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,7 +40,7 @@ public class AuditLogService {
                 .targetType(targetType)
                 .targetId(targetId)
                 .metadata(metadata)
-                .createdAt(Instant.now())
+                .createdAt(LocalDateTime.now())
                 .build();
 
         return auditLogRepository.save(log);
@@ -51,8 +51,8 @@ public class AuditLogService {
             UUID userId,
             String action,
             String targetType,
-            Instant from,
-            Instant to
+            LocalDateTime from,
+            LocalDateTime to
     ) {
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("감사 대상 사용자를 찾을 수 없습니다."));

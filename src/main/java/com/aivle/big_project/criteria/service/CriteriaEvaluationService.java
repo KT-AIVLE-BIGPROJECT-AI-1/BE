@@ -1,5 +1,8 @@
 package com.aivle.big_project.criteria.service;
 
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.criteria.dto.CriteriaEvaluationStatusResponse;
 import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationRequest;
 import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationResponse;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -24,6 +28,7 @@ public class CriteriaEvaluationService {
 
     private final CriteriaRepository criteriaRepository;
     private final CriteriaEvaluationRepository criteriaEvaluationRepository;
+    private final ActivityLogService activityLogService;
 
     public CriteriaEvaluationStatusResponse getCriteriaEvaluationStatus(
             UUID caseId,
@@ -94,6 +99,24 @@ public class CriteriaEvaluationService {
                                 .createdAt(LocalDateTime.now())
                                 .build()
                 );
+
+        activityLogService.log(
+                criteria.getLegalIssue().getCaseEntity().getCaseId(),
+                ActivityLogField.CRITERIA_EVALUATION,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("criteriaId", criteria.getCriteriaId());
+                    p.put("status", newEvaluation.getStatus().name());
+
+                    if (newEvaluation.getReason() != null) {
+                        p.put("reason", newEvaluation.getReason());
+                    }
+
+                    if (newEvaluation.getEvidenceGap() != null) {
+                        p.put("evidenceGap", newEvaluation.getEvidenceGap());
+                    }
+                }
+        );
 
         return new UpdateCriteriaEvaluationResponse(
                 newEvaluation.getEvaluationId(),

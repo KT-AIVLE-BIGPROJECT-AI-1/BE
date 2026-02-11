@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.Date;
 
@@ -36,7 +36,7 @@ public class JwtTokenService implements AuthTokenService {
 
     @Override
     public Tokens issueTokens(UUID userId, String role) {
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now();
 
         String access = createJwt(userId, role, now, accessExpSec);
         String refresh = createJwt(userId, role, now, refreshExpSec);
@@ -60,7 +60,7 @@ public class JwtTokenService implements AuthTokenService {
         }
 
         // rotation
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now();
         String newAccess = createJwt(userId, role, now, accessExpSec);
         String newRefresh = createJwt(userId, role, now, refreshExpSec);
 
@@ -88,8 +88,8 @@ public class JwtTokenService implements AuthTokenService {
         }
     }
 
-    private String createJwt(UUID userId, String role, Instant now, long expSeconds) {
-        Instant exp = now.plusMillis(expSeconds);
+    private String createJwt(UUID userId, String role, LocalDateTime now, long expSeconds) {
+        LocalDateTime exp = now.plusMillis(expSeconds);
 
         return Jwts.builder()
                 .subject(userId.toString())

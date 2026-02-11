@@ -6,6 +6,7 @@ public enum ActivityLogField {
     CASE_FILE,
     ANALYSIS,
     STATEMENT_ANALYSIS,
+    CONTRADICTION,
     VIDEO_ANALYSIS,
     LEGAL_ISSUE,
     LEGAL_CRITERIA,

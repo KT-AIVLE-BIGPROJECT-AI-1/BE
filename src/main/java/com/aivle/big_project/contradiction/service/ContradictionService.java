@@ -1,5 +1,8 @@
 package com.aivle.big_project.contradiction.service;
 
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.analysis.repository.AnalysisRepository;
 import com.aivle.big_project.contradiction.dto.ContradictionListResponse;
@@ -22,6 +25,7 @@ import java.util.*;
 public class ContradictionService {
 
     private final ContradictionRepository contradictionRepository;
+    private final ActivityLogService activityLogService;
 
     public ContradictionListResponse getContradictions(UUID caseId) {
 
@@ -48,6 +52,7 @@ public class ContradictionService {
                                 new CustomException(ErrorCode.CONTRADICTION_NOT_FOUND)
                         );
 
+        var before = contradiction.getStatus();
         try {
             contradiction.changeStatus(request.getStatus());
         } catch (IllegalStateException e) {
@@ -55,6 +60,17 @@ public class ContradictionService {
                     ErrorCode.INVALID_CONTRADICTION_STATUS_TRANSITION
             );
         }
+
+        activityLogService.log(
+                contradiction.getCaseEntity().getCaseId(),
+                ActivityLogField.CONTRADICTION,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("contradictionId", contradiction.getContradictionId());
+                    p.put("before", before.name());
+                    p.put("after", contradiction.getStatus().name());
+                }
+        );
 
         return new UpdateContradictionStatusResponse(
                 contradiction.getContradictionId(),

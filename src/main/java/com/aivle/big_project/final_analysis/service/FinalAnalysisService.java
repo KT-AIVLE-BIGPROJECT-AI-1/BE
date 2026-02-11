@@ -1,5 +1,8 @@
 package com.aivle.big_project.final_analysis.service;
 
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.repository.CaseRepository;
 import com.aivle.big_project.final_analysis.dto.FinalAnalysisResponse;
@@ -10,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -19,6 +23,7 @@ public class FinalAnalysisService {
 
     private final CaseRepository caseRepository;
     private final FinalAnalysisRepository finalAnalysisRepository;
+    private final ActivityLogService activityLogService;
 //    private final AiFinalAnalysisClient aiFinalAnalysisClient;
 
     @Transactional
@@ -43,6 +48,20 @@ public class FinalAnalysisService {
 //                        .evidenceSufficiencySummary(ai.getEvidenceSufficiencySummary(), "evidence_sufficiency_summary")
 //                        .remainingRiskSummary(ai.getRemainingRiskSummary(), "remaining_risk_summary")
                         .build()
+        );
+
+        activityLogService.log(
+                aCase.getCaseId(),
+                ActivityLogField.FINAL_ANALYSIS,
+                ActivityType.CREATE,
+                p -> {
+                    p.put("finalAnalysisId", saved.getFinalId());
+
+                    if (saved.getRecommendedDecision() != null) {
+                        p.put("recommendedDecision",
+                                saved.getRecommendedDecision().name());
+                    }
+                }
         );
 
         return toResponse(saved);

@@ -3,7 +3,7 @@ package com.aivle.big_project.chat_log.dto;
 import com.aivle.big_project.chat_log.entity.ChatLogEntity;
 import lombok.*;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDateTime;
 import java.util.UUID;
 

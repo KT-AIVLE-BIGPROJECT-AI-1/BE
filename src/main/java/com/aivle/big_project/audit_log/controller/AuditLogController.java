@@ -6,7 +6,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @RestController
@@ -22,9 +22,9 @@ public class AuditLogController {
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String targetType,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)Instant from,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime from,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)Instant to
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime to
 
     ) {
         return ResponseEntity.ok(auditLogService.search(userId, action, targetType, from, to));

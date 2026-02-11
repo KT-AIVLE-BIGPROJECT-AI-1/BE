@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,5 +32,5 @@ public class CaseSummaryResponse {
     private String assigneeName; // 담당자 User name
 
     @JsonProperty("updated_at")
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 }

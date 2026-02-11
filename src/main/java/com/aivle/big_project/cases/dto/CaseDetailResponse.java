@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -43,7 +43,7 @@ public class CaseDetailResponse {
     private boolean canEdit;
 
     @JsonProperty("created_at")
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     @JsonProperty("updated_at")
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 }
