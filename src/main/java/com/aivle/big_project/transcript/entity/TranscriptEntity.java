@@ -2,14 +2,18 @@ package com.aivle.big_project.transcript.entity;
 
 import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
 @Entity
 @Table(name = "transcript")
-@Getter
+@Getter @Builder
+@AllArgsConstructor @NoArgsConstructor
 public class TranscriptEntity {
 
     @Id

@@ -1,9 +1,11 @@
 package com.aivle.big_project.keyStatement.entity;
 
+import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.transcript.entity.TranscriptEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,4 +34,9 @@ public class KeyStatementEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }
