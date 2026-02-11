@@ -25,8 +25,12 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 200MB
 jwt:
-    secret: ${JWT_SECRET:387a0a0c-ebe5-4e8a-be06-ac32b5154c7c}
+    secret: ${JWT_SECRET:}
     access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
     refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
 
@@ -34,4 +38,8 @@ logging:
   level:
     org.hibernate.sql: debug
     org.hibernate.jdbc.bind: trace
-    
+
+ai:
+  base-url: "http://localhost:8000"
+  connect-timeout-ms: 2000
+  response-timeout-ms: 60000
