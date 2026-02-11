@@ -1,27 +1,42 @@
 package com.aivle.big_project.cases.service;
 
-import com.aivle.big_project.cases.client.AiSummaryClient;
+import com.aivle.big_project.ai.AiClientException;
+import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryRequest;
+import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryResponse;
+import com.aivle.big_project.ai.dto.caseSummary.CaseSummary;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteria;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaRequest;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaResponse;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalIssue;
 import com.aivle.big_project.cases.dto.*;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.cases.entity.CaseType;
 import com.aivle.big_project.cases.repository.CaseRepository;
+import com.aivle.big_project.criteria.entity.CriteriaEntity;
+import com.aivle.big_project.criteria.entity.LegalIssueEntity;
+import com.aivle.big_project.criteria.repository.CriteriaRepository;
+import com.aivle.big_project.criteria.repository.LegalIssueRepository;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -31,8 +46,12 @@ public class CaseService {
 
     private final CaseRepository caseRepository;
     private final UserRepository userRepository;
-    private final AiSummaryClient aiSummaryClient;
     private final CaseTabFlagService caseTabFlagService;
+    @Qualifier("aiHttpWebClient")
+    private final WebClient aiHttpWebClient;
+    private final ObjectMapper objectMapper;
+    private final LegalIssueRepository legalIssueRepository;
+    private final CriteriaRepository criteriaRepository;
 
     // 홈화면 대시보드
     @Transactional
@@ -105,22 +124,27 @@ public class CaseService {
 
         CaseEntity saved = caseRepository.save(newCase);
 
-        // AI 호출 내용 - 구조화 요약 실패해도 사건 생성됨
+        // AI 호출 내용 - 구조화 요약 + 법리 생성 실패해도 사건 생성됨
         try {
-            AiSummaryClient.SummaryResult result = aiSummaryClient.summarize(
-                    AiSummaryClient.SummaryCommand.builder()
-                            .title(saved.getTitle())
-                            .description(saved.getDescription())
-                            .type(saved.getType().name())
-                            .location(saved.getLocation())
-                            .build()
-            );
-            if (result != null && result.summaryJson() != null && !result.summaryJson().isBlank()) {
-                saved.updateSummary(result.summaryJson());
-            }
+            CaseSummary summary = createCaseSummary(saved);
+            System.out.println("summary = " + summary);
 
+            // 법리 쟁점/판단기준 생성
+            LegalCriteriaResponse legalCriteriaResponse = createLegalCriteria(saved, summary);
+
+            if (legalCriteriaResponse == null
+                    || legalCriteriaResponse.getLegalIssues() == null
+                    || legalCriteriaResponse.getLegalIssues().isEmpty()) {
+                log.info("AI Legal Criteria 가 빈 값입니다. caseId={}", saved.getCaseId());
+            } else {
+                log.info("AI legal criteria 가 성공적으로 생성되었습니다. caseId={}, legalIssues={}", saved.getCaseId(), legalCriteriaResponse.getLegalIssues().size());
+                saveLegalCriteriaFromDto(saved, legalCriteriaResponse);
+            }
+        } catch (AiClientException e) {
+            log.warn("AI 응답 생성을 실패했습니다. caseId={}, status={}, body={}",
+                    saved.getCaseId(), e.getStatusCode(), e.getResponseBody(), e);
         } catch (Exception e) {
-            log.warn("AI summary generation failed. caseId={}, reason={}",
+            log.warn("AI 응답 생성 도중 문제가 발생했습니다. caseId={}, reason={}",
                     saved.getCaseId(), e.getMessage(), e);
         }
         return toDetail(saved, true);
@@ -307,6 +331,87 @@ public class CaseService {
                 .build();
     }
 
+    private CaseSummary createCaseSummary(CaseEntity saved) {
+        CaseAiSummaryRequest request = CaseAiSummaryRequest.builder()
+                .title(saved.getTitle())
+                .description(saved.getDescription())
+                .type(saved.getType().name())
+                .occurred_at(saved.getOccuredAt())
+                .location(saved.getLocation())
+
+                .build();
+
+        // AI 서버 스펙: POST /cases/summary
+        CaseAiSummaryResponse response =  aiHttpWebClient.post()
+                .uri("/cases/summary")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(CaseAiSummaryResponse.class)
+                .block();
+
+        CaseSummary summary = response.getSummary();
+        return summary;
+    }
+
+    private LegalCriteriaResponse createLegalCriteria(CaseEntity saved, CaseSummary summary) {
+        LegalCriteriaRequest request = LegalCriteriaRequest.builder()
+                .description(saved.getDescription())
+                .summary(summary)
+                .type(saved.getType().name())
+                .occurredAt(saved.getOccuredAt())
+                .location(saved.getLocation())
+                .build();
+
+        // AI 서버 스펙: POST /legal-criteria
+        LegalCriteriaResponse response =  aiHttpWebClient.post()
+                .uri("/legal-criteria")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(LegalCriteriaResponse.class)
+                .block();
+
+        return response;
+    }
+
+    /**
+     * AI LegalCriteriaResponse(legal_issues -> legal_criteria)를 DB 엔티티로 저장한다.
+     * - LegalIssueEntity: Case FK
+     * - CriteriaEntity: LegalIssue FK
+     */
+    private void saveLegalCriteriaFromDto(CaseEntity savedCase, LegalCriteriaResponse resp) {
+        List<LegalIssue> issues = resp.getLegalIssues();
+        if (issues == null || issues.isEmpty()) return;
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (LegalIssue issueDto : issues) {
+            LegalIssueEntity issue = LegalIssueEntity.builder()
+                    .caseEntity(savedCase)
+                    .issueName(issueDto.getIssueName())
+                    .relatedLaw(issueDto.getRelatedLaw())
+                    .build();
+            issue = legalIssueRepository.save(issue);
+
+            List<LegalCriteria> criteriaDtoList = issueDto.getLegalCriteria();
+            if (criteriaDtoList == null || criteriaDtoList.isEmpty()) continue;
+
+            List<CriteriaEntity> batch = new ArrayList<>();
+            for (LegalCriteria c : criteriaDtoList) {
+                CriteriaEntity criteria = CriteriaEntity.builder()
+                        .legalIssue(issue)
+                        .criterionText(c.getCriterionText())
+                        .precedentCaseNo(c.getPrecedentCaseNo())
+                        .precedentDecisionDate(c.getPrecedentDecisionDate())
+                        .createdAt(now) // created_at NOT NULL 대응
+                        .build();
+
+                batch.add(criteria);
+            }
+            criteriaRepository.saveAll(batch);
+        }
+    }
 
     private CaseDetailResponse toDetail(CaseEntity c, boolean canEdit) {
         return CaseDetailResponse.builder()

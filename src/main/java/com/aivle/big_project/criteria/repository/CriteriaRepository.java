@@ -40,4 +40,5 @@ public interface CriteriaRepository extends JpaRepository<CriteriaEntity, UUID> 
             @Param("criteriaId") UUID criteriaId
     );
 
+    List<CriteriaEntity> findAllByLegalIssue_CaseEntity_CaseIdOrderByCreatedAtAsc(UUID caseId);
 }
