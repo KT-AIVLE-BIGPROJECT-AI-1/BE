@@ -128,6 +128,7 @@ public class CaseService {
         try {
             CaseSummary summary = createCaseSummary(saved);
             System.out.println("summary = " + summary);
+            saved.updateSummary(objectMapper.writeValueAsString(summary));
 
             // 법리 쟁점/판단기준 생성
             LegalCriteriaResponse legalCriteriaResponse = createLegalCriteria(saved, summary);
