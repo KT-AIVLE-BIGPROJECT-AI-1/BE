@@ -9,7 +9,7 @@ import tools.jackson.databind.annotation.JsonNaming;
 @Setter
 @Builder
 @NoArgsConstructor
-@AllArgsConstructor
+@AllArgsConstructor @ToString
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class AiCallbackRequest {
     private AnalysisStage stage;

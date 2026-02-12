@@ -1,5 +1,6 @@
 package com.aivle.big_project.cases.service;
 
+import com.aivle.big_project.ai.AiClient;
 import com.aivle.big_project.ai.AiClientException;
 import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryRequest;
 import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryResponse;
@@ -21,7 +22,6 @@ import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -30,11 +30,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -47,8 +44,7 @@ public class CaseService {
     private final CaseRepository caseRepository;
     private final UserRepository userRepository;
     private final CaseTabFlagService caseTabFlagService;
-    @Qualifier("aiHttpWebClient")
-    private final WebClient aiHttpWebClient;
+    private final AiClient aiClient;
     private final ObjectMapper objectMapper;
     private final LegalIssueRepository legalIssueRepository;
     private final CriteriaRepository criteriaRepository;
@@ -117,7 +113,7 @@ public class CaseService {
                 .description(req.getDescription())
                 .type(paredType)
                 .status(CaseStatus.OPEN)
-                .occuredAt(req.getOccuredAt())
+                .occurredAt(req.getOccuredAt())
                 .location(req.getLocation())
                 .summary(null)
                 .build();
@@ -126,20 +122,39 @@ public class CaseService {
 
         // AI 호출 내용 - 구조화 요약 + 법리 생성 실패해도 사건 생성됨
         try {
-            CaseSummary summary = createCaseSummary(saved);
+            CaseAiSummaryRequest summaryRequest = CaseAiSummaryRequest.builder()
+                    .title(saved.getTitle())
+                    .description(saved.getDescription())
+                    .type(saved.getType().name())
+                    .occurred_at(saved.getOccurredAt())
+                    .location(saved.getLocation())
+                    .build();
+
+            CaseAiSummaryResponse summaryResponse = aiClient.createCaseSummary(summaryRequest);
+            CaseSummary summary = summaryResponse.getSummary();
+
             System.out.println("summary = " + summary);
+
             saved.updateSummary(objectMapper.writeValueAsString(summary));
 
             // 법리 쟁점/판단기준 생성
-            LegalCriteriaResponse legalCriteriaResponse = createLegalCriteria(saved, summary);
+            LegalCriteriaRequest criteriaRequest = LegalCriteriaRequest.builder()
+                    .description(saved.getDescription())
+                    .summary(summary)
+                    .type(saved.getType().name())
+                    .occurredAt(saved.getOccurredAt())
+                    .location(saved.getLocation())
+                    .build();
 
-            if (legalCriteriaResponse == null
-                    || legalCriteriaResponse.getLegalIssues() == null
-                    || legalCriteriaResponse.getLegalIssues().isEmpty()) {
+            LegalCriteriaResponse criteriaResponse = aiClient.createLegalCriteria(criteriaRequest);
+
+            if (criteriaResponse == null
+                    || criteriaResponse.getLegalIssues() == null
+                    || criteriaResponse.getLegalIssues().isEmpty()) {
                 log.info("AI Legal Criteria 가 빈 값입니다. caseId={}", saved.getCaseId());
             } else {
-                log.info("AI legal criteria 가 성공적으로 생성되었습니다. caseId={}, legalIssues={}", saved.getCaseId(), legalCriteriaResponse.getLegalIssues().size());
-                saveLegalCriteriaFromDto(saved, legalCriteriaResponse);
+                log.info("AI legal criteria 가 성공적으로 생성되었습니다. caseId={}, legalIssues={}", saved.getCaseId(), criteriaResponse.getLegalIssues().size());
+                saveLegalCriteriaFromDto(saved, criteriaResponse);
             }
         } catch (AiClientException e) {
             log.warn("AI 응답 생성을 실패했습니다. caseId={}, status={}, body={}",
@@ -332,50 +347,6 @@ public class CaseService {
                 .build();
     }
 
-    private CaseSummary createCaseSummary(CaseEntity saved) {
-        CaseAiSummaryRequest request = CaseAiSummaryRequest.builder()
-                .title(saved.getTitle())
-                .description(saved.getDescription())
-                .type(saved.getType().name())
-                .occurred_at(saved.getOccuredAt())
-                .location(saved.getLocation())
-
-                .build();
-
-        // AI 서버 스펙: POST /cases/summary
-        CaseAiSummaryResponse response =  aiHttpWebClient.post()
-                .uri("/cases/summary")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(CaseAiSummaryResponse.class)
-                .block();
-
-        CaseSummary summary = response.getSummary();
-        return summary;
-    }
-
-    private LegalCriteriaResponse createLegalCriteria(CaseEntity saved, CaseSummary summary) {
-        LegalCriteriaRequest request = LegalCriteriaRequest.builder()
-                .description(saved.getDescription())
-                .summary(summary)
-                .type(saved.getType().name())
-                .occurredAt(saved.getOccuredAt())
-                .location(saved.getLocation())
-                .build();
-
-        // AI 서버 스펙: POST /legal-criteria
-        LegalCriteriaResponse response =  aiHttpWebClient.post()
-                .uri("/legal-criteria")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(LegalCriteriaResponse.class)
-                .block();
-
-        return response;
-    }
-
     /**
      * AI LegalCriteriaResponse(legal_issues -> legal_criteria)를 DB 엔티티로 저장한다.
      * - LegalIssueEntity: Case FK
@@ -426,7 +397,7 @@ public class CaseService {
                 .summary(c.getSummary())
                 .type(c.getType().name())
                 .status(c.getStatus().name())
-                .occuredAt(c.getOccuredAt())
+                .occuredAt(c.getOccurredAt())
                 .location(c.getLocation())
                 .canEdit(canEdit)
                 .createdAt(c.getCreatedAt())
@@ -440,7 +411,7 @@ public class CaseService {
                 .title(c.getTitle())
                 .type(c.getType().name())
                 .status(c.getStatus().name())
-                .occuredAt(c.getOccuredAt())
+                .occuredAt(c.getOccurredAt())
                 .location(c.getLocation())
                 .assigneeUserId(c.getUser().getUserId())
                 .assigneeName(c.getUser().getName())

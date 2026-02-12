@@ -45,8 +45,8 @@ public class CaseEntity {
     @Column(nullable = false, length = 30)
     private CaseStatus status;
 
-    @Column(name = "occured_at")
-    private LocalDateTime occuredAt;
+    @Column(name = "occurred_at")
+    private LocalDateTime occurredAt;
 
     @Column(length = 225)
     private String location;
