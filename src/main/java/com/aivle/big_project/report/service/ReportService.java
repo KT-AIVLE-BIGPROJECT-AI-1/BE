@@ -258,8 +258,8 @@ public class ReportService {
 
         List<ReportType> filterTypes = parseFilterTypes(type);
         List<Report> reports = filterTypes.isEmpty()
-                ? reportRepository.findByACase_CaseIdOrderByUpdatedAtDesc(caseId)
-                : reportRepository.findByACase_CaseIdAndTypeInOrderByUpdatedAtDesc(caseId, filterTypes);
+                ? reportRepository.findAllByCaseId(caseId)
+                : reportRepository.findAllByCaseIdAndTypeIn(caseId, filterTypes);
 
         return ReportListResponse.builder()
                 .reports(reports.stream().map(this::toSummary).toList())
