@@ -1,19 +1,36 @@
 spring:
+  storage:
+    s3:
+      bucket: ${AWS_S3_BUCKET_NAME:}
+      region: ${AWS_S3_REGION:}
+      access-key: ${AWS_ACCESS_KEY_ID:}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:}
+      presign:
+        put-expire-minutes: 10
+        get-expire-minutes: 10
   datasource:
-    url: jdbc:postgresql://localhost:5432/big_project
-    username: postgres
-    password: dusdndusdn
-
+    url: ${DB_URL:}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+    open-in-view: false
   jackson:
     property-naming-strategy: SNAKE_CASE
 
-  jpa:
-    hibernate:
-      ddl-auto: update
+jwt:
+  secret: ${JWT_SECRET:387a0a0c-ebe5-4e8a-be06-ac32b5154c7c}
+  access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
+  refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
 
-  storage:
-    s3:
-      region: ap-northeast-2
-      access-key: local
-      secret-key: local
-      bucket: local-bucket
+logging:
+  level:
+    org.hibernate.sql: debug
+    org.hibernate.jdbc.bind: trace
