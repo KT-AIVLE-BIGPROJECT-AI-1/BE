@@ -23,7 +23,7 @@ public class ActivityLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_id", nullable = false)
-    private CaseEntity aCase;
+    private CaseEntity caseEntity;
 
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)

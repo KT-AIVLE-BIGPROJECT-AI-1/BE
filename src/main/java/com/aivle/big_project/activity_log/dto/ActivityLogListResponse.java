@@ -22,7 +22,7 @@ public class ActivityLogListResponse {
     private static ActivityLogResponse toItem(ActivityLog log) {
         return ActivityLogResponse.builder()
                 .logId(log.getLogId())
-                .caseId(log.getACase().getCaseId())
+                .caseId(log.getCaseEntity().getCaseId())
                 .field(log.getField().name())              // enum이면 name()
                 .activityType(log.getActivityType().name())
                 .payload(log.getPayload())

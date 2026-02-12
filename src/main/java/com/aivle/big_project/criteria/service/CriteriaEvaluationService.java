@@ -74,6 +74,9 @@ public class CriteriaEvaluationService {
                         .findFirst()
                         .orElse(null);
 
+        CriteriaEvaluationStatus beforeStatus =
+                latest != null ? latest.getStatus() : null;
+
         String evidenceGap =
                 switch (request.getStatus()) {
                     case NOT_SATISFIED, INSUFFICIENT -> {
@@ -101,12 +104,15 @@ public class CriteriaEvaluationService {
                 );
 
         activityLogService.log(
-                criteria.getLegalIssue().getCaseEntity().getCaseId(),
+                caseId,
                 ActivityLogField.CRITERIA_EVALUATION,
                 ActivityType.UPDATE,
                 p -> {
                     p.put("criteriaId", criteria.getCriteriaId());
-                    p.put("status", newEvaluation.getStatus().name());
+                    if (beforeStatus != null) {
+                        p.put("before", beforeStatus.name());
+                    }
+                    p.put("after", newEvaluation.getStatus().name());
 
                     if (newEvaluation.getReason() != null) {
                         p.put("reason", newEvaluation.getReason());

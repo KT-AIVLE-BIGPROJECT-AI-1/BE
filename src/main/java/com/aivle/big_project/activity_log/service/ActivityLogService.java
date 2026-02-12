@@ -35,7 +35,7 @@ public class ActivityLogService {
         assertAssignee(aCase, userId);
 
         List<ActivityLog> logs =
-                activityLogRepository.findByACase_CaseIdOrderByCreatedAtDesc(caseId);
+                activityLogRepository.findByCaseEntity_CaseIdOrderByCreatedAtDesc(caseId);
 
         List<ActivityLogResponse> responses = logs.stream()
                 .map(this::toResponse)
@@ -63,6 +63,7 @@ public class ActivityLogService {
             ActivityType type,
             Consumer<Map<String, Object>> payloadBuilder
     ) {
+        System.out.println("ActivityLog caseId = " + caseId);
         Map<String, Object> payload = new LinkedHashMap<>();
         payloadBuilder.accept(payload);
 
@@ -71,7 +72,7 @@ public class ActivityLogService {
                         .orElseThrow(() -> new RuntimeException("Case not found"));
 
         ActivityLog log = ActivityLog.builder()
-                .aCase(managedCase)
+                .caseEntity(managedCase)
                 .field(field)
                 .activityType(type)
                 .payload(payload)
@@ -87,13 +88,64 @@ public class ActivityLogService {
     private ActivityLogResponse toResponse(ActivityLog log) {
         return ActivityLogResponse.builder()
                 .logId(log.getLogId())
-                .caseId(log.getACase().getCaseId())
+                .caseId(log.getCaseEntity().getCaseId())
                 .field(log.getField().name())
                 .activityType(log.getActivityType().name())
                 .payload(log.getPayload())
+                .message(buildMessage(log))
                 .createdAt(log.getCreatedAt())
                 .reportId(log.getReport() != null ? log.getReport().getReportId() : null)
                 .status(log.getStatus() != null ? log.getStatus().name() : null)
                 .build();
+    }
+
+    private String buildMessage(ActivityLog log) {
+
+        Map<String, Object> payload = log.getPayload();
+        if (payload == null) return "";
+
+        switch (log.getField()) {
+
+            case CONTRADICTION -> {
+                String before = (String) payload.get("before");
+                String after = (String) payload.get("after");
+                return String.format("모순 상태 변경: %s → %s", before, after);
+            }
+
+            case CRITERIA_EVALUATION -> {
+                String before = (String) payload.get("before");
+                String after = (String) payload.get("after");
+                String status = (String) payload.get("status");
+                String reason = (String) payload.get("reason");
+                String gap = (String) payload.get("evidenceGap");
+
+                StringBuilder sb = new StringBuilder();
+
+                sb.append("기준 평가 변경\n");
+
+                if (before != null && after != null) {
+                    sb.append(String.format("이전 상태: %s\n", before));
+                    sb.append(String.format("변경 상태: %s\n", after));
+                } else if (status != null) {
+                    sb.append(String.format("상태: %s\n", status));
+                }
+
+                if (reason != null && !reason.isBlank()) {
+                    sb.append("\n사유: ");
+                    sb.append(reason.trim()).append("\n");
+                }
+
+                if (gap != null && !gap.isBlank()) {
+                    sb.append("\n증거보강 포인트:\n");
+                    sb.append(gap.trim());
+                }
+
+                return sb.toString();
+            }
+
+            default -> {
+                return "";
+            }
+        }
     }
 }

@@ -109,17 +109,6 @@ public class CaseService {
 
         CaseEntity saved = caseRepository.saveAndFlush(newCase);
 
-        activityLogService.log(
-                saved.getCaseId(),
-                ActivityLogField.CASE,
-                ActivityType.CREATE,
-                p -> {
-                    p.put("title", saved.getTitle());
-                    p.put("type", saved.getType().name());
-                    p.put("status", saved.getStatus().name());
-                    p.put("location", saved.getLocation());
-                }
-        );
 
         // AI 호출 내용 - 구조화 요약 실패해도 사건 생성됨
         try {

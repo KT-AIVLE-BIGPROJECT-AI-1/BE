@@ -19,6 +19,8 @@ public class ActivityLogResponse {
     private String activityType;  // Create, Update, Delete
 
     private Object payload;  // 로그 세부내용
+    private String message;
+
     private LocalDateTime createdAt;
 
     private UUID reportId; // 중간보고 귀속 여부 판단에 사용

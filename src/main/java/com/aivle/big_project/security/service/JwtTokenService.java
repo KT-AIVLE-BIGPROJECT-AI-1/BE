@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.Date;
@@ -23,10 +24,10 @@ public class JwtTokenService implements AuthTokenService {
     private String secret;
 
     @Value("${jwt.access-expiration-ms:900000}")
-    private long accessExpSec;
+    private long accessExpMillis;
 
     @Value("${jwt.refresh-expiration-ms:604800000}")
-    private long refreshExpSec;
+    private long refreshExpMillis;
 
     private static final String ROLE = "role";
 
@@ -36,37 +37,33 @@ public class JwtTokenService implements AuthTokenService {
 
     @Override
     public Tokens issueTokens(UUID userId, String role) {
-        LocalDateTime now = LocalDateTime.now();
 
-        String access = createJwt(userId, role, now, accessExpSec);
-        String refresh = createJwt(userId, role, now, refreshExpSec);
+        String access = createJwt(userId, role, accessExpMillis);
+        String refresh = createJwt(userId, role, refreshExpMillis);
 
-        // USER.refreshTokenHash에 저장
         refreshTokenStore.save(userId, refresh);
 
-        return new Tokens(access, refresh, accessExpSec, "Bearer");
+        return new Tokens(access, refresh, accessExpMillis, "Bearer");
     }
 
     @Override
     public Tokens refreshTokens(String rawRefreshToken) {
+
         Claims claims = parseClaims(rawRefreshToken);
 
         UUID userId = UUID.fromString(claims.getSubject());
         String role = claims.get(ROLE, String.class);
 
-        // DB 저장된 refreshTokenHash와 일치 여부 확인
         if (!refreshTokenStore.matches(userId, rawRefreshToken)) {
             throw new RuntimeException("유효하지 않은 Refresh Token");
         }
 
-        // rotation
-        LocalDateTime now = LocalDateTime.now();
-        String newAccess = createJwt(userId, role, now, accessExpSec);
-        String newRefresh = createJwt(userId, role, now, refreshExpSec);
+        String newAccess = createJwt(userId, role, accessExpMillis);
+        String newRefresh = createJwt(userId, role, refreshExpMillis);
 
         refreshTokenStore.save(userId, newRefresh);
 
-        return new Tokens(newAccess, newRefresh, accessExpSec, "Bearer");
+        return new Tokens(newAccess, newRefresh, accessExpMillis, "Bearer");
     }
 
     @Override
@@ -88,8 +85,10 @@ public class JwtTokenService implements AuthTokenService {
         }
     }
 
-    private String createJwt(UUID userId, String role, LocalDateTime now, long expSeconds) {
-        LocalDateTime exp = now.plusMillis(expSeconds);
+    private String createJwt(UUID userId, String role, long expMillis) {
+
+        Instant now = Instant.now();
+        Instant exp = now.plusMillis(expMillis);
 
         return Jwts.builder()
                 .subject(userId.toString())
