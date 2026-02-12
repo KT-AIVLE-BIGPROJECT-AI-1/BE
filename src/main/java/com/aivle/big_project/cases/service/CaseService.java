@@ -326,7 +326,9 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         User newAssignee = userRepository.findById(req.getAssigneeUserId()).orElseThrow();
 
-        UUID before = aCase.getUser().getUserId();
+        String beforeName = aCase.getUser().getName();
+        String afterName = newAssignee.getName();
+
         aCase.updateUser(newAssignee);
 
         activityLogService.log(
@@ -335,8 +337,8 @@ public class CaseService {
                 ActivityType.UPDATE,
                 p -> {
                     p.put("field", "assignee");
-                    p.put("before", before);
-                    p.put("after", newAssignee.getUserId());
+                    p.put("before", beforeName);
+                    p.put("after", afterName);
                 }
         );
 

@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
-import org.springframework.transaction.annotation.Propagation;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -56,7 +55,7 @@ public class ActivityLogService {
     /**
      * 로그 저장 (payload는 Object로 받음)
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void log(
             UUID caseId,
             ActivityLogField field,
@@ -110,6 +109,33 @@ public class ActivityLogService {
                 String before = (String) payload.get("before");
                 String after = (String) payload.get("after");
                 return String.format("모순 상태 변경: %s → %s", before, after);
+            }
+
+            case CASE_FILE -> {
+                String originName = (String) payload.get("originName");
+                String fileType = (String) payload.get("fileType");
+
+                return String.format("파일 업로드: [%s] %s", fileType, originName);
+            }
+
+            case CASE -> {
+                String field = (String) payload.get("field");
+                String before = (String) payload.get("before");
+                String after = (String) payload.get("after");
+
+                if ("description".equals(field)) {
+                    return "사건 내용 수정";
+                }
+
+                if ("status".equals(field)) {
+                    return String.format("사건 상태 변경: %s → %s", before, after);
+                }
+
+                if ("assignee".equals(field)) {
+                    return String.format("담당자 변경: %s → %s", before, after);
+                }
+
+                return "사건 정보 수정";
             }
 
             case CRITERIA_EVALUATION -> {
