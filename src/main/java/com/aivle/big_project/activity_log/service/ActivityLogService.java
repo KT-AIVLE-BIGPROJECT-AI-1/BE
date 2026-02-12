@@ -73,7 +73,7 @@ public class ActivityLogService {
                 .caseEntity(managedCase)
                 .field(field)
                 .activityType(type)
-                .payload(null)
+                .payload(payload)
                 .status(ActivityLogStatus.NOT_INCLUDED)
                 .build();
 
