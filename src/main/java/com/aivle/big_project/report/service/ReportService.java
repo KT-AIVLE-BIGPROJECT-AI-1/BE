@@ -15,6 +15,7 @@ import com.aivle.big_project.report.entity.ReportType;
 import com.aivle.big_project.report.repository.ReportRepository;
 import com.aivle.big_project.storage.ObjectStorageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -83,13 +85,10 @@ public class ReportService {
 
         report.updateDraft(req.getTitle(), req.getContent());
 
-        // 🔥 먼저 로그 동기화
         syncReportLogs(caseId, report, req.getSelectedLogIds());
 
-        // 🔥 보고서 확정
         report.setStatus(ReportStatus.FINALIZED);
 
-        // 🔥 포함된 로그 상태 변경
         List<ActivityLog> includedLogs =
                 activityLogRepository.findByReport_ReportId(report.getReportId());
 
@@ -105,22 +104,31 @@ public class ReportService {
     // 수사 결과 보고 초안 생성
     @Transactional
     public ReportGenerateResponse generateFinalReport(UUID caseId, UUID userId) {
-        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
+
+        CaseEntity aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new RuntimeException("사건이 존재하지 않습니다."));
         assertAssignee(aCase, userId);
 
-        FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
-
-        // AI 호출
-//        var aiDraft = aiReportClient.generateFinalDraft(caseId, finalAnalysis);
-        // 사건 정보 + 찾아낸 가장 최신 최종통합분석의 세부 내용 모두 담아서 요청
-        // title, content(JSON) 받아오기
+        FinalAnalysis finalAnalysis =
+                finalAnalysisRepository.findLatestByCaseId(caseId)
+                        .stream()
+                        .findFirst()
+                        .orElseThrow(() ->
+                                new RuntimeException("최종 통합분석이 존재하지 않습니다."));
+        // ============================================
+        // 🔥 AI 서버 호출 예정
+        // 사건 정보 + 최신 FinalAnalysis 전체 데이터 전달
+        // title, content(JSON/String) 응답 받아오기
+        //
+        // var aiDraft = aiReportClient.generateFinalDraft(caseId, finalAnalysis);
+        // ============================================
 
         return ReportGenerateResponse.builder()
                 .caseId(caseId)
                 .type(ReportType.FINAL.name())
-//                .title(aiDraft.title())
-//                .content(aiDraft.content())
-                .selectedLogIds(List.of())
+                // .title(aiDraft.title())
+                // .content(aiDraft.content())
+                .selectedLogIds(List.of())   // 결과보고는 로그 없음
                 .build();
     }
 
@@ -371,8 +379,16 @@ public class ReportService {
     }
 
     private FinalAnalysis latestFinalAnalysis(UUID caseId) {
-        return finalAnalysisRepository.findTopByACase_CaseIdOrderByCreatedAtDesc(caseId)
-                .orElseThrow(() -> new RuntimeException("최종 통합분석이 존재하지 않습니다."));
+        log.info("caseId = {}", caseId);
+
+        List<FinalAnalysis> list =
+                finalAnalysisRepository.findLatestByCaseId(caseId);
+
+        if (list.isEmpty()) {
+            throw new RuntimeException("최종 통합분석이 존재하지 않습니다.");
+        }
+
+        return list.get(0); // 최신순이므로 첫번째가 최신
     }
 
     private void assertField(ReportType type, List<UUID> selectedLogIds, UUID finalId) {
