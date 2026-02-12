@@ -316,22 +316,6 @@ public class CaseService {
         if(!isAssignee) throw new RuntimeException("담당자만 삭제할 수 있습니다.");
         if(aCase.getStatus() != CaseStatus.OPEN) throw new RuntimeException("분석 이전 상태의 사건만 삭제할 수 있습니다.");
 
-        // 🔥 필요한 값만 미리 복사
-        String title = aCase.getTitle();
-        String status = aCase.getStatus().name();
-
-        // 1️⃣ 로그 먼저 남기기
-        activityLogService.log(
-                caseId,
-                ActivityLogField.CASE,
-                ActivityType.DELETE,
-                p -> {
-                    p.put("title", title);
-                    p.put("status", status);
-                }
-        );
-
-        // 2️⃣ deleteById 사용 (중요)
         caseRepository.deleteById(caseId);
     }
 
