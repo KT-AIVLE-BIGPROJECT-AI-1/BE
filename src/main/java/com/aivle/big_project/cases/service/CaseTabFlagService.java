@@ -46,7 +46,7 @@ public class CaseTabFlagService {
 
         if (caseEntity.getStatus() == CaseStatus.DONE) {
             hasFinalAnalysis =
-                    finalAnalysisRepository.existsByACase_CaseId(caseId);
+                    finalAnalysisRepository.existsFinalAnalysisByCaseId(caseId);
         }
 
         return TabFlags.builder()

@@ -62,7 +62,6 @@ public class ActivityLogService {
             ActivityType type,
             Consumer<Map<String, Object>> payloadBuilder
     ) {
-        System.out.println("ActivityLog caseId = " + caseId);
         Map<String, Object> payload = new LinkedHashMap<>();
         payloadBuilder.accept(payload);
 
@@ -74,7 +73,7 @@ public class ActivityLogService {
                 .caseEntity(managedCase)
                 .field(field)
                 .activityType(type)
-                .payload(payload)
+                .payload(null)
                 .status(ActivityLogStatus.NOT_INCLUDED)
                 .build();
 

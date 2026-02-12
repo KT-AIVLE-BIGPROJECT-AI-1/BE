@@ -285,7 +285,6 @@ public class CaseService {
         CaseStatus newStatus = parseStatus(req.getStatus());
 
         aCase.updateStatus(newStatus);
-
         activityLogService.log(
                 aCase.getCaseId(),
                 ActivityLogField.CASE,
