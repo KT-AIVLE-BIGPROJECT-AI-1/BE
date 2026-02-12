@@ -9,4 +9,5 @@ import java.util.UUID;
 
 public interface FinalAnalysisRepository extends JpaRepository<FinalAnalysis, UUID> {
     Optional<FinalAnalysis> findTopByACase_CaseIdOrderByCreatedAtDesc(UUID caseId);
+    boolean existsByACase_CaseId(UUID caseId);
 }

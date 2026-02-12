@@ -4,7 +4,7 @@ import lombok.*;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,5 +20,5 @@ public class AuditLogResponse {
 
     private Map<String, Object> metadata; // jsonb
 
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 }

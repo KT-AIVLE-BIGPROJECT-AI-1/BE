@@ -4,7 +4,7 @@ import lombok.*;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter @Setter @Builder
@@ -20,5 +20,5 @@ public class ReportSummaryResponse {
     private String title;
     private String filePath;
 
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 }

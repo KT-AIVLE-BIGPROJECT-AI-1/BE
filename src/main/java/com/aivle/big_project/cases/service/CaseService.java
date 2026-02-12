@@ -1,5 +1,8 @@
 package com.aivle.big_project.cases.service;
 
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.cases.client.AiSummaryClient;
 import com.aivle.big_project.cases.dto.*;
 import com.aivle.big_project.cases.entity.CaseEntity;
@@ -33,6 +36,7 @@ public class CaseService {
     private final UserRepository userRepository;
     private final AiSummaryClient aiSummaryClient;
     private final CaseTabFlagService caseTabFlagService;
+    private final ActivityLogService activityLogService;
 
     // 홈화면 대시보드
     @Transactional
@@ -103,7 +107,8 @@ public class CaseService {
                 .summary(null)
                 .build();
 
-        CaseEntity saved = caseRepository.save(newCase);
+        CaseEntity saved = caseRepository.saveAndFlush(newCase);
+
 
         // AI 호출 내용 - 구조화 요약 실패해도 사건 생성됨
         try {
@@ -244,7 +249,19 @@ public class CaseService {
         if(!isAssignee) throw new RuntimeException("담당자만 수정할 수 있습니다.");
         if(aCase.getStatus() != CaseStatus.OPEN) throw new RuntimeException("분석 이전 상태의 사건만 수정할 수 있습니다.");
 
+        String before = aCase.getDescription();
         aCase.updateDescription(req.getDescription());
+
+        activityLogService.log(
+                aCase.getCaseId(),
+                ActivityLogField.CASE,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("field", "description");
+                    p.put("before", before);
+                    p.put("after", req.getDescription());
+                }
+        );
 
         CaseDetailResponse detail = toDetail(aCase, true);
         TabFlags flags = caseTabFlagService.getFlags(caseId);
@@ -264,8 +281,21 @@ public class CaseService {
 
         if(!isAssignee) throw new RuntimeException("담당자만 상태 변경이 가능합니다.");
 
+        CaseStatus before = aCase.getStatus();
         CaseStatus newStatus = parseStatus(req.getStatus());
+
         aCase.updateStatus(newStatus);
+
+        activityLogService.log(
+                aCase.getCaseId(),
+                ActivityLogField.CASE,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("field", "status");
+                    p.put("before", before.name());
+                    p.put("after", newStatus.name());
+                }
+        );
 
         CaseDetailResponse detail = toDetail(aCase, true);
         TabFlags flags = caseTabFlagService.getFlags(caseId);
@@ -286,7 +316,7 @@ public class CaseService {
         if(!isAssignee) throw new RuntimeException("담당자만 삭제할 수 있습니다.");
         if(aCase.getStatus() != CaseStatus.OPEN) throw new RuntimeException("분석 이전 상태의 사건만 삭제할 수 있습니다.");
 
-        caseRepository.delete(aCase);
+        caseRepository.deleteById(caseId);
     }
 
     // [관리자] 사건 담당자 변경
@@ -296,7 +326,21 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         User newAssignee = userRepository.findById(req.getAssigneeUserId()).orElseThrow();
 
+        String beforeName = aCase.getUser().getName();
+        String afterName = newAssignee.getName();
+
         aCase.updateUser(newAssignee);
+
+        activityLogService.log(
+                aCase.getCaseId(),
+                ActivityLogField.CASE,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("field", "assignee");
+                    p.put("before", beforeName);
+                    p.put("after", afterName);
+                }
+        );
 
         CaseDetailResponse detail = toDetail(aCase, false);
         TabFlags flags = caseTabFlagService.getFlags(caseId);

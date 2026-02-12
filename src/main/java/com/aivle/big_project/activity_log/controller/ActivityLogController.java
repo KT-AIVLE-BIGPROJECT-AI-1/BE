@@ -21,6 +21,7 @@ public class ActivityLogController {
     @GetMapping("/cases/{caseId}/activity-log")
     public ResponseEntity<?> listActivityLog(@PathVariable UUID caseId) {
         UUID userId = currentUserId();
+
         return ResponseEntity.ok(activityLogService.listActivityLogs(caseId, userId));
     }
 }

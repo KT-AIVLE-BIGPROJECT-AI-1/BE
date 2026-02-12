@@ -26,12 +26,11 @@ spring:
     property-naming-strategy: SNAKE_CASE
 
 jwt:
-    secret: ${JWT_SECRET:387a0a0c-ebe5-4e8a-be06-ac32b5154c7c}
-    access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
-    refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
+  secret: ${JWT_SECRET:387a0a0c-ebe5-4e8a-be06-ac32b5154c7c}
+  access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
+  refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
 
 logging:
   level:
     org.hibernate.sql: debug
     org.hibernate.jdbc.bind: trace
-    

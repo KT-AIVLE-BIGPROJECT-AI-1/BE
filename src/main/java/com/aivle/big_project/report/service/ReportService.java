@@ -48,7 +48,7 @@ public class ReportService {
 
         // 같은 사건의 로그만 허용
         for (ActivityLog log : logs) {
-            if (!log.getACase().getCaseId().equals(caseId)) {
+            if (!log.getCaseEntity().getCaseId().equals(caseId)) {
                 throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
             }
         }
@@ -386,8 +386,8 @@ public class ReportService {
 
         for (ActivityLog log : incoming) {
             // 같은 사건의 로그만 허용
-            if (log.getACase() == null || log.getACase().getCaseId() == null) throw new RuntimeException("activity_log에 사건 정보가 없습니다.");
-            if (!log.getACase().getCaseId().equals(caseId)) throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
+            if (log.getCaseEntity() == null || log.getCaseEntity().getCaseId() == null) throw new RuntimeException("activity_log에 사건 정보가 없습니다.");
+            if (!log.getCaseEntity().getCaseId().equals(caseId)) throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
         }
 
         // 기존 선택 - 새로 선택 => detach

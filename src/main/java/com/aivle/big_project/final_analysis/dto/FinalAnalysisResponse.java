@@ -4,7 +4,7 @@ import lombok.*;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter @Setter @Builder
@@ -21,5 +21,5 @@ public class FinalAnalysisResponse {
         private String evidenceSufficiencySummary;
         private String remainingRiskSummary;
 
-        private Instant createdAt;
+        private LocalDateTime createdAt;
 }

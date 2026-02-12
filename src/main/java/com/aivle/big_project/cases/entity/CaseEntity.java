@@ -7,7 +7,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -52,14 +52,14 @@ public class CaseEntity {
     private String location;
 
     @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
 
@@ -68,7 +68,7 @@ public class CaseEntity {
 
     @PreUpdate
     void onUpdate() {
-        this.updatedAt = Instant.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
     public void updateDescription(String description) {

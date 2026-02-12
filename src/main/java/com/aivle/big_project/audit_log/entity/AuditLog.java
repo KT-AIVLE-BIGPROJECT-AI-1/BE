@@ -5,7 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -37,11 +37,11 @@ public class AuditLog {
     private Map<String, Object> metadata;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     @PrePersist
     void prePersist() {
         if (logId == null) logId = UUID.randomUUID();
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null) createdAt = LocalDateTime.now();
     }
 }
