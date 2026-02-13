@@ -32,6 +32,10 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST,
             "판단 기준 삭제 사유는 필수 입력값입니다."
     ),
+    EVALUATION_STATUS_NOT_FOUNT(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 법리 기준 충족 평가에 status가 포함되지 않았습니다."
+    ),
 
     // investigation file
     INVALID_FILE_TYPE(
@@ -60,11 +64,19 @@ public enum ErrorCode {
             HttpStatus.NOT_FOUND,
             "존재하지 않는 전사입니다."
     ),
+    INVALID_TRANSCRIPT_TYPE(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 잘못된 TRANSCRIPT 분석 결과 형식입니다."
+    ),
 
     // key-statement
     INVALID_KEY_STATEMENT_TYPE(
             HttpStatus.BAD_REQUEST,
             "To AI Server: 잘못된 Key-Statement Payload 형태입니다."
+    ),
+    KEY_STATEMENT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "id에 해당하는 KeyStatement Entity를 찾을 수 없습니다."
     ),
 
     // contradiction
@@ -94,6 +106,16 @@ public enum ErrorCode {
             "To AI Server: 잘못된 VideoEvent Payload 형태입니다."
     ),
 
+    // chat-log
+    CHAT_LOG_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 Chat Log입니다."
+    ),
+    EMPTY_CHAT_LOG(
+            HttpStatus.BAD_REQUEST,
+            "To AI Server: 챗봇 응답이 비어 있습니다."
+    ),
+
     // analysis
     ANALYSIS_NOT_FOUND(
             HttpStatus.NOT_FOUND,
@@ -114,6 +136,16 @@ public enum ErrorCode {
     JSON_PARSE_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "Analysis 정보 업데이트 도중 Json 파싱에 실패했습니다."
+    ),
+    ANALYSIS_NOT_IN_CASE(
+            HttpStatus.NOT_FOUND,
+            "사건과 관련되지 않은 분석 파일이거나, 분석 파일과 연관된 사건 ID가 존재하지 않습니다."
+    ),
+
+    // ai
+    AI_CALL_FAILED(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "AI 응답 연결에 실패했습니다."
     )
     ;
 

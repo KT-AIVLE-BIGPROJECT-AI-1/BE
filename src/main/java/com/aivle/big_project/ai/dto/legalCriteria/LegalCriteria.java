@@ -16,6 +16,6 @@ public class LegalCriteria {
     private String criterionText;
     private String precedentCaseNo;
     private LocalDate precedentDecisionDate;
-    private CriteriaEvaluation evaluation;
+    private CriteriaEvaluation criteriaEvaluation;
     private LegalIssue legalIssue;
 }

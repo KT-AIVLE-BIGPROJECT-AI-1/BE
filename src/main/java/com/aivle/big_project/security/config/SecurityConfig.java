@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 "/auth/signup/admin",
                                 "/health"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/cases/*/analysis/*/callback").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/cases/**").authenticated()
                         .requestMatchers("/audit-logs").hasRole("ADMIN")
                         .anyRequest().authenticated()

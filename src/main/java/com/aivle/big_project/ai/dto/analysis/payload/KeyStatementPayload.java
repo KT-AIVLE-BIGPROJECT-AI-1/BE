@@ -7,6 +7,8 @@ import tools.jackson.databind.annotation.JsonNaming;
 
 @Getter @Setter @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class KeyStatementPayload {
-    private String tempId;
+    private String tempId; //keyStatementId
+    private String transcriptId; //transcript_temp_id
+    private String statementText;
     private String content;
 }

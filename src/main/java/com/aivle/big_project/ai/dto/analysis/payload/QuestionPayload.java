@@ -7,7 +7,9 @@ import tools.jackson.databind.annotation.JsonNaming;
 
 @Getter @Setter @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class QuestionPayload {
-    private String statement_tempId;
-    private String target; // optional
+    private String tempId; //questionId
+    private String contradictionId; //contradiction_temp_id
+    private String target;
     private String question;
+    private String rationale;
 }
