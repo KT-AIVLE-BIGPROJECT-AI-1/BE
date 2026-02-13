@@ -1,5 +1,6 @@
 package com.aivle.big_project.ai.dto.caseSummary;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
@@ -11,7 +12,7 @@ import java.util.UUID;
 @Setter
 @Builder
 @NoArgsConstructor
-@AllArgsConstructor
+@AllArgsConstructor @ToString
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CaseDetail {
     private UUID caseId;
@@ -20,6 +21,6 @@ public class CaseDetail {
     private CaseSummary summary;
     private String type;
     private String status;
-    private LocalDateTime occurredAt;
+    private String occurredAt;
     private String location;
 }
