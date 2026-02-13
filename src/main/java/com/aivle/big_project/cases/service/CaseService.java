@@ -9,6 +9,9 @@ import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteria;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaRequest;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaResponse;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalIssue;
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.cases.dto.*;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
@@ -48,6 +51,7 @@ public class CaseService {
     private final ObjectMapper objectMapper;
     private final LegalIssueRepository legalIssueRepository;
     private final CriteriaRepository criteriaRepository;
+    private final ActivityLogService activityLogService;
 
     // 홈화면 대시보드
     @Transactional
@@ -284,7 +288,19 @@ public class CaseService {
         if(!isAssignee) throw new RuntimeException("담당자만 수정할 수 있습니다.");
         if(aCase.getStatus() != CaseStatus.OPEN) throw new RuntimeException("분석 이전 상태의 사건만 수정할 수 있습니다.");
 
+        String before = aCase.getDescription();
         aCase.updateDescription(req.getDescription());
+
+        activityLogService.log(
+                aCase.getCaseId(),
+                ActivityLogField.CASE,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("field", "description");
+                    p.put("before", before);
+                    p.put("after", req.getDescription());
+                }
+        );
 
         CaseDetailResponse detail = toDetail(aCase, true);
         TabFlags flags = caseTabFlagService.getFlags(caseId);
@@ -304,8 +320,20 @@ public class CaseService {
 
         if(!isAssignee) throw new RuntimeException("담당자만 상태 변경이 가능합니다.");
 
+        CaseStatus before = aCase.getStatus();
         CaseStatus newStatus = parseStatus(req.getStatus());
+
         aCase.updateStatus(newStatus);
+        activityLogService.log(
+                aCase.getCaseId(),
+                ActivityLogField.CASE,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("field", "status");
+                    p.put("before", before.name());
+                    p.put("after", newStatus.name());
+                }
+        );
 
         CaseDetailResponse detail = toDetail(aCase, true);
         TabFlags flags = caseTabFlagService.getFlags(caseId);
@@ -326,7 +354,7 @@ public class CaseService {
         if(!isAssignee) throw new RuntimeException("담당자만 삭제할 수 있습니다.");
         if(aCase.getStatus() != CaseStatus.OPEN) throw new RuntimeException("분석 이전 상태의 사건만 삭제할 수 있습니다.");
 
-        caseRepository.delete(aCase);
+        caseRepository.deleteById(caseId);
     }
 
     // [관리자] 사건 담당자 변경
@@ -336,7 +364,21 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         User newAssignee = userRepository.findById(req.getAssigneeUserId()).orElseThrow();
 
+        String beforeName = aCase.getUser().getName();
+        String afterName = newAssignee.getName();
+
         aCase.updateUser(newAssignee);
+
+        activityLogService.log(
+                aCase.getCaseId(),
+                ActivityLogField.CASE,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("field", "assignee");
+                    p.put("before", beforeName);
+                    p.put("after", afterName);
+                }
+        );
 
         CaseDetailResponse detail = toDetail(aCase, false);
         TabFlags flags = caseTabFlagService.getFlags(caseId);
@@ -347,11 +389,7 @@ public class CaseService {
                 .build();
     }
 
-    /**
-     * AI LegalCriteriaResponse(legal_issues -> legal_criteria)를 DB 엔티티로 저장한다.
-     * - LegalIssueEntity: Case FK
-     * - CriteriaEntity: LegalIssue FK
-     */
+    // AI LegalCriteriaResponse를 DB 엔티티로 저장
     private void saveLegalCriteriaFromDto(CaseEntity savedCase, LegalCriteriaResponse resp) {
         List<LegalIssue> issues = resp.getLegalIssues();
         if (issues == null || issues.isEmpty()) return;

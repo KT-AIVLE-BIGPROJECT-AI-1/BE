@@ -1,6 +1,10 @@
 package com.aivle.big_project.investigationFile.service;
 
 import com.aivle.big_project.analysis.service.AnalysisService;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
+import com.aivle.big_project.cases.entity.CaseEntity;
+import com.aivle.big_project.cases.repository.CaseRepository;
 import com.aivle.big_project.global.exception.CustomException;
 import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.investigationFile.dto.InvestigationFileListItem;
@@ -10,6 +14,8 @@ import com.aivle.big_project.investigationFile.entity.FileType;
 import com.aivle.big_project.investigationFile.entity.InvestigationFileEntity;
 import com.aivle.big_project.investigationFile.repository.InvestigationFileRepository;
 import com.aivle.big_project.storage.ObjectStorageService;
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,8 +39,10 @@ import java.util.stream.Collectors;
 public class InvestigationFileService {
 
     private final InvestigationFileRepository investigationFileRepository;
+    private final CaseRepository caseRepository;
     private final ObjectStorageService objectStorageService;
     private final AnalysisService analysisService;
+    private final ActivityLogService activityLogService;
 
     private static final long DOC_MAX   = 20 * 1024 * 1024;
     private static final long IMG_MAX   = 50 * 1024 * 1024;
@@ -130,6 +138,17 @@ public class InvestigationFileService {
 
         InvestigationFileEntity saved =
                 investigationFileRepository.save(entity);
+
+        activityLogService.log(
+                caseId,
+                ActivityLogField.CASE_FILE,
+                ActivityType.CREATE,
+                p -> {
+                    p.put("fileId", saved.getFileId());
+                    p.put("fileType", saved.getFileType().name());
+                    p.put("originName", saved.getOriginName());
+                }
+        );
 
         return new InvestigationFileResponse(
                 saved.getFileId(),

@@ -4,13 +4,16 @@ import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.report.entity.Report;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Getter @NoArgsConstructor
-@Builder @AllArgsConstructor
+@Builder @AllArgsConstructor @Setter
 @Entity @Table(name = "ACTIVITY_LOG")
 public class ActivityLog {
 
@@ -20,7 +23,7 @@ public class ActivityLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_id", nullable = false)
-    private CaseEntity aCase;
+    private CaseEntity caseEntity;
 
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
@@ -35,25 +38,20 @@ public class ActivityLog {
     @Column(name = "activity_type", nullable = false)
     private ActivityType activityType;
 
-    @Column(name = "payload", columnDefinition = "jsonb")
-    private String payload;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> payload;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private ActivityLogStatus status;
+    @Column(name = "status", nullable = false)
+    private ActivityLogStatus status = ActivityLogStatus.NOT_INCLUDED;
 
     @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     @PrePersist
     void onCreate() {
-        this.createdAt = Instant.now();
-    }
-
-    public void record(ActivityLogField field, ActivityType activityType, String payload) {
-        this.field = field;
-        this.activityType = activityType;
-        this.payload = payload;
+        this.createdAt = LocalDateTime.now();
     }
 
     public void attachToReport(Report report) {

@@ -4,7 +4,7 @@ import lombok.*;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter @Setter @Builder
@@ -18,8 +18,10 @@ public class ActivityLogResponse {
     private String field;  // 테이블명
     private String activityType;  // Create, Update, Delete
 
-    private String payload;  // 로그 세부내용
-    private Instant createdAt;
+    private Object payload;  // 로그 세부내용
+    private String message;
+
+    private LocalDateTime createdAt;
 
     private UUID reportId; // 중간보고 귀속 여부 판단에 사용
     private String status; // 중간보고 귀속 여부

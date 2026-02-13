@@ -37,6 +37,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service @Slf4j
@@ -98,7 +99,7 @@ public class FinalAnalysisService {
                         .legalIssuesSummary(response.getLegalIssuesSummary())
                         .evidenceSufficiencySummary(response.getEvidenceSufficiencySummary())
                         .remainingRiskSummary(response.getRemainingRiskSummary())
-                        .createdAt(Instant.now())
+                        .createdAt(LocalDateTime.now())
                         .build()
         );
         return toResponse(saved);
@@ -263,7 +264,11 @@ public class FinalAnalysisService {
         return FinalAnalysisResponse.builder()
                 .finalId(fa.getFinalId())
                 .caseId(fa.getACase().getCaseId())
-                .recommendedDecision(fa.getRecommendedDecision().name())
+                .recommendedDecision(
+                        fa.getRecommendedDecision() != null
+                                ? fa.getRecommendedDecision().name()
+                                : null
+                )
                 .decisionSummary(fa.getDecisionSummary())
                 .legalIssuesSummary(fa.getLegalIssuesSummary())
                 .evidenceSufficiencySummary(fa.getEvidenceSufficiencySummary())

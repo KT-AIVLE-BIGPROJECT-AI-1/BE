@@ -9,6 +9,9 @@ import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteria;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalIssue;
 import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.analysis.repository.AnalysisRepository;
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.criteria.dto.CriteriaEvaluationStatusResponse;
 import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationRequest;
 import com.aivle.big_project.criteria.dto.UpdateCriteriaEvaluationResponse;
@@ -29,6 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service @Slf4j
@@ -40,6 +44,7 @@ public class CriteriaEvaluationService {
     private final AnalysisRepository analysisRepository;
     private final AiClient aiClient;
     private final ObjectMapper objectMapper;
+    private final ActivityLogService activityLogService;
 
     public CriteriaEvaluationStatusResponse getCriteriaEvaluationStatus(
             UUID caseId,
@@ -85,6 +90,9 @@ public class CriteriaEvaluationService {
                         .findFirst()
                         .orElse(null);
 
+        CriteriaEvaluationStatus beforeStatus =
+                latest != null ? latest.getStatus() : null;
+
         String evidenceGap =
                 switch (request.getStatus()) {
                     case NOT_SATISFIED, INSUFFICIENT -> {
@@ -110,6 +118,27 @@ public class CriteriaEvaluationService {
                                 .createdAt(LocalDateTime.now())
                                 .build()
                 );
+
+        activityLogService.log(
+                caseId,
+                ActivityLogField.CRITERIA_EVALUATION,
+                ActivityType.UPDATE,
+                p -> {
+                    p.put("criteriaId", criteria.getCriteriaId());
+                    if (beforeStatus != null) {
+                        p.put("before", beforeStatus.name());
+                    }
+                    p.put("after", newEvaluation.getStatus().name());
+
+                    if (newEvaluation.getReason() != null) {
+                        p.put("reason", newEvaluation.getReason());
+                    }
+
+                    if (newEvaluation.getEvidenceGap() != null) {
+                        p.put("evidenceGap", newEvaluation.getEvidenceGap());
+                    }
+                }
+        );
 
         return new UpdateCriteriaEvaluationResponse(
                 newEvaluation.getEvaluationId(),

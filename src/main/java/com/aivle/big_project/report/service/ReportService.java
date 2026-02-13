@@ -1,6 +1,7 @@
 package com.aivle.big_project.report.service;
 
 import com.aivle.big_project.activity_log.entity.ActivityLog;
+import com.aivle.big_project.activity_log.entity.ActivityLogStatus;
 import com.aivle.big_project.activity_log.repository.ActivityLogRepository;
 
 import com.aivle.big_project.cases.entity.CaseEntity;
@@ -14,6 +15,7 @@ import com.aivle.big_project.report.entity.ReportType;
 import com.aivle.big_project.report.repository.ReportRepository;
 import com.aivle.big_project.storage.ObjectStorageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -48,7 +51,7 @@ public class ReportService {
 
         // 같은 사건의 로그만 허용
         for (ActivityLog log : logs) {
-            if (!log.getACase().getCaseId().equals(caseId)) {
+            if (!log.getCaseEntity().getCaseId().equals(caseId)) {
                 throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
             }
         }
@@ -81,12 +84,19 @@ public class ReportService {
         Report report = upsertFinalizingReport(req.getReportId(), ReportType.INTERIM, aCase);
 
         report.updateDraft(req.getTitle(), req.getContent());
-        report.setStatus(ReportStatus.FINALIZED);
 
         syncReportLogs(caseId, report, req.getSelectedLogIds());
 
-//        String path = generateAndUpload(report);
-//        report.setFilePath(path);;
+        report.setStatus(ReportStatus.FINALIZED);
+
+        List<ActivityLog> includedLogs =
+                activityLogRepository.findByReport_ReportId(report.getReportId());
+
+        for (ActivityLog log : includedLogs) {
+            log.setStatus(ActivityLogStatus.INCLUDED);
+        }
+
+        activityLogRepository.saveAll(includedLogs);
 
         return toDetail(report);
     }
@@ -94,22 +104,31 @@ public class ReportService {
     // 수사 결과 보고 초안 생성
     @Transactional
     public ReportGenerateResponse generateFinalReport(UUID caseId, UUID userId) {
-        CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
+
+        CaseEntity aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new RuntimeException("사건이 존재하지 않습니다."));
         assertAssignee(aCase, userId);
 
-        FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
-
-        // AI 호출
-//        var aiDraft = aiReportClient.generateFinalDraft(caseId, finalAnalysis);
-        // 사건 정보 + 찾아낸 가장 최신 최종통합분석의 세부 내용 모두 담아서 요청
-        // title, content(JSON) 받아오기
+        FinalAnalysis finalAnalysis =
+                finalAnalysisRepository.findLatestByCaseId(caseId)
+                        .stream()
+                        .findFirst()
+                        .orElseThrow(() ->
+                                new RuntimeException("최종 통합분석이 존재하지 않습니다."));
+        // ============================================
+        // 🔥 AI 서버 호출 예정
+        // 사건 정보 + 최신 FinalAnalysis 전체 데이터 전달
+        // title, content(JSON/String) 응답 받아오기
+        //
+        // var aiDraft = aiReportClient.generateFinalDraft(caseId, finalAnalysis);
+        // ============================================
 
         return ReportGenerateResponse.builder()
                 .caseId(caseId)
                 .type(ReportType.FINAL.name())
-//                .title(aiDraft.title())
-//                .content(aiDraft.content())
-                .selectedLogIds(List.of())
+                // .title(aiDraft.title())
+                // .content(aiDraft.content())
+                .selectedLogIds(List.of())   // 결과보고는 로그 없음
                 .build();
     }
 
@@ -240,6 +259,10 @@ public class ReportService {
 
         report.updateDraft(req.getTitle(), req.getContent());
 
+        if (type == ReportType.INTERIM && req.getSelectedLogIds() != null) {
+            syncReportLogs(caseId, report, req.getSelectedLogIds());
+        }
+
         if (type == ReportType.INTERIM) syncReportLogs(caseId, report, req.getSelectedLogIds());
         else {
             // 사건에서 가장 최신의 통합분석 가져오기
@@ -258,8 +281,8 @@ public class ReportService {
 
         List<ReportType> filterTypes = parseFilterTypes(type);
         List<Report> reports = filterTypes.isEmpty()
-                ? reportRepository.findByACase_CaseIdOrderByUpdatedAtDesc(caseId)
-                : reportRepository.findByACase_CaseIdAndTypeInOrderByUpdatedAtDesc(caseId, filterTypes);
+                ? reportRepository.findAllByCaseId(caseId)
+                : reportRepository.findAllByCaseIdAndTypeIn(caseId, filterTypes);
 
         return ReportListResponse.builder()
                 .reports(reports.stream().map(this::toSummary).toList())
@@ -356,8 +379,16 @@ public class ReportService {
     }
 
     private FinalAnalysis latestFinalAnalysis(UUID caseId) {
-        return finalAnalysisRepository.findTopByACase_CaseIdOrderByCreatedAtDesc(caseId)
-                .orElseThrow(() -> new RuntimeException("최종 통합분석이 존재하지 않습니다."));
+        log.info("caseId = {}", caseId);
+
+        List<FinalAnalysis> list =
+                finalAnalysisRepository.findLatestByCaseId(caseId);
+
+        if (list.isEmpty()) {
+            throw new RuntimeException("최종 통합분석이 존재하지 않습니다.");
+        }
+
+        return list.get(0); // 최신순이므로 첫번째가 최신
     }
 
     private void assertField(ReportType type, List<UUID> selectedLogIds, UUID finalId) {
@@ -373,36 +404,53 @@ public class ReportService {
     }
 
     private void syncReportLogs(UUID caseId, Report report, List<UUID> selectedLogIds) {
-        List<UUID> incomingIds = (selectedLogIds == null) ? List.of() : selectedLogIds.stream().distinct().toList();
 
-        if (incomingIds.isEmpty()) throw new RuntimeException("selected_log_ids는 비어있을 수 없습니다.");
+        List<UUID> incomingIds = (selectedLogIds == null)
+                ? List.of()
+                : selectedLogIds.stream().distinct().toList();
 
-        // 현재 이 (임시)보고서에 귀속된 로그들
-        List<ActivityLog> existing = activityLogRepository.findByReport_ReportId(report.getReportId());
-        // 새로 선택된 로그들
-        List<ActivityLog> incoming = activityLogRepository.findAllById(incomingIds);
+        List<ActivityLog> existing =
+                activityLogRepository.findByReport_ReportId(report.getReportId());
 
-        if (incoming.size() != incomingIds.size()) throw new RuntimeException("존재하지 않는 activity_log_id가 포함되어 있습니다.");
+        // 🔥 선택 비어있으면 전부 detach
+        if (incomingIds.isEmpty()) {
+            for (ActivityLog log : existing) {
+                log.detachFromReport();
+            }
+            activityLogRepository.saveAll(existing);
+            return;
+        }
+
+        List<ActivityLog> incoming =
+                activityLogRepository.findAllById(incomingIds);
+
+        if (incoming.size() != incomingIds.size()) {
+            throw new RuntimeException("존재하지 않는 activity_log_id가 포함되어 있습니다.");
+        }
 
         for (ActivityLog log : incoming) {
-            // 같은 사건의 로그만 허용
-            if (log.getACase() == null || log.getACase().getCaseId() == null) throw new RuntimeException("activity_log에 사건 정보가 없습니다.");
-            if (!log.getACase().getCaseId().equals(caseId)) throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
+            if (!log.getCaseEntity().getCaseId().equals(caseId)) {
+                throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
+            }
         }
 
-        // 기존 선택 - 새로 선택 => detach
         HashSet<UUID> incomingSet = new HashSet<>(incomingIds);
-        for(ActivityLog log : existing) {
-            if (!incomingSet.contains(log.getLogId())) log.setReport(null);
+
+        // 🔥 빠진 것들 detach
+        for (ActivityLog log : existing) {
+            if (!incomingSet.contains(log.getLogId())) {
+                log.detachFromReport();
+            }
         }
-        // 새로 선택된 것 모두 attach
-        for(ActivityLog log : incoming) {
-            log.setReport(report);
+
+        // 🔥 새로 포함된 것 attach
+        for (ActivityLog log : incoming) {
+            log.attachToReport(report);
         }
+
         activityLogRepository.saveAll(existing);
         activityLogRepository.saveAll(incoming);
     }
-
 
     private void assertAssignee(CaseEntity aCase, UUID userId) {
         if (aCase.getUser() == null || aCase.getUser().getUserId() == null) {
@@ -475,9 +523,8 @@ public class ReportService {
                 .createdAt(report.getCreatedAt())
                 .updatedAt(report.getUpdatedAt())
                 .build();
-
-
     }
+
     private ReportSummaryResponse toSummary(Report report) {
         return ReportSummaryResponse.builder()
                 .reportId(report.getReportId())
