@@ -16,14 +16,17 @@ import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.repository.CaseRepository;
 import com.aivle.big_project.contradiction.entity.ContradictionEntity;
 import com.aivle.big_project.contradiction.entity.ContradictionStatus;
+import com.aivle.big_project.contradiction.repository.ContradictionRepository;
 import com.aivle.big_project.criteria.entity.CriteriaEntity;
 import com.aivle.big_project.criteria.entity.LegalIssueEntity;
 import com.aivle.big_project.criteria.repository.CriteriaRepository;
+import com.aivle.big_project.criteria.service.CriteriaEvaluationService;
 import com.aivle.big_project.investigationFile.entity.InvestigationFileEntity;
 import com.aivle.big_project.investigationFile.repository.InvestigationFileRepository;
 import com.aivle.big_project.keyStatement.entity.KeyStatementEntity;
 import com.aivle.big_project.keyStatement.repository.KeyStatementRepository;
 import com.aivle.big_project.question.entity.QuestionEntity;
+import com.aivle.big_project.question.repository.QuestionRepository;
 import com.aivle.big_project.storage.ObjectStorageService;
 import com.aivle.big_project.transcript.entity.TranscriptEntity;
 import com.aivle.big_project.transcript.repository.TranscriptRepository;
@@ -35,18 +38,24 @@ import com.aivle.big_project.investigationFile.entity.FileType;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.type.TypeReference;
+import org.springframework.transaction.event.TransactionalEventListener;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.time.LocalDateTime;
 import java.util.*;
+
+import static com.aivle.big_project.analysis.entity.AnalysisStatus.COMPLETED;
 
 @Service @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class AnalysisService {
 
     private final AnalysisRepository analysisRepository;
@@ -58,10 +67,15 @@ public class AnalysisService {
     private final InvestigationFileRepository investigationFileRepository;
     private final CriteriaRepository criteriaRepository;
     private final ObjectStorageService objectStorageService;
+    private final CriteriaEvaluationService criteriaEvaluationService;
     private final AiClient aiClient;
     private final ObjectMapper objectMapper;
+    private final ContradictionRepository contradictionRepository;
+    private final QuestionRepository questionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 분석 상태 조회
+    @Transactional(readOnly = true)
     public AnalysisStatusResponse getStatus(UUID analysisId) {
         AnalysisEntity analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() ->
@@ -75,11 +89,12 @@ public class AnalysisService {
     }
 
     // 분석 상세 조회
+    @Transactional(readOnly = true)
     public AnalysisDetailResponse getAnalysisDetail(UUID analysisId) {
         AnalysisEntity analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
 
-        if (analysis.getStatus() != AnalysisStatus.COMPLETED) {
+        if (analysis.getStatus() != COMPLETED) {
             throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
         }
 
@@ -202,7 +217,7 @@ public class AnalysisService {
                     .summary(parsedSummary)
                     .type(aCase.getType() == null ? null : aCase.getType().name())
                     .status(aCase.getStatus() == null ? null : aCase.getStatus().name())
-                    .occurredAt(aCase.getOccuredAt())
+                    .occurredAt(aCase.getOccurredAt())
                     .location(aCase.getLocation())
                     .build();
 
@@ -288,12 +303,35 @@ public class AnalysisService {
 
     @Transactional
     public void handleStageCallback(UUID caseId, UUID analysisId, AiCallbackRequest request) {
+        log.info("==handleStageCallback Start== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
         // analysis 존재 여부 확인 + 사건 매칭 검증
         AnalysisEntity analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+        boolean wasCompleted = analysis.getStatus() == COMPLETED;
 
+        // 이미 COMPLETED 된 분석에 대한 중복 콜백 처리
+        // - VIDEO_EVENT는 여러 번 올 수 있으므로, COMPLETED 이후에도 이벤트 저장 허용
+        if (wasCompleted) {
+            if (!analysis.getFile().getCaseId().equals(caseId)) {
+                log.warn("요청 analysis_id 와 case_id의 경로가 맞지 않습니다. 1");
+                throw new CustomException(ErrorCode.ANALYSIS_NOT_IN_CASE);
+            }
+            if (request.getStage() == AnalysisStage.VIDEO_EVENT) {
+                handleVideoEvent(analysis, request.getPayload());
+            }
+            mergeStageResultWithMeta(analysis, request.getStage(), request.getPayload());
+//            analysisRepository.save(analysis);
+            analysisRepository.saveAndFlush(analysis);
+            log.info("중복된 자료분석 callback 처리(이미 COMPLETED). caseId={}, analysisId={}, stage={}",
+                    caseId, analysisId, request.getStage());
+            log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
+            return;
+        }
+
+        // 분석 결과 = 사건 연결되어 있는지 검증
         if (!analysis.getFile().getCaseId().equals(caseId)) {
-            throw new CustomException(ErrorCode.CASE_NOT_FOUND); // 또는 별도 에러코드
+            log.warn("요청 analysis_id 와 case_id의 경로가 맞지 않습니다. 2");
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_IN_CASE);
         }
 
         // stage 분기
@@ -307,32 +345,91 @@ public class AnalysisService {
             default -> throw new CustomException(ErrorCode.INVALID_STAGE_TYPE);
         }
 
-        // 2) (선택) 필수 stage 모두 수신되면 COMPLETED 전환 로직
-        // - stage 수신 여부를 analysis.resultData(json)로 기록하거나,
-        // - 별도 “analysis_stage_received” 테이블을 두는 방식 중 택1
+        // stage 결과를 analysis.resultData(JSON)에 누적 저장 + 메타(last_received_at, received 플래그) 갱신
+        mergeStageResultWithMeta(analysis, request.getStage(), request.getPayload());
+        // 완료 처리(파일 1개당 1회만): 이미 COMPLETED 된 Analysis 면 아무것도 하지 않는다.
+
+        FileType ft = analysis.getFile().getFileType();
+
+            // DOCUMENT/IMAGE: SUMMARY 수신 시 완료
+        if ((ft == FileType.DOCUMENT || ft == FileType.IMAGE) && request.getStage() == AnalysisStage.SUMMARY) {
+            analysis.setStatus(COMPLETED);
+//            analysisRepository.save(analysis);
+            analysisRepository.saveAndFlush(analysis);
+            log.info("analysisRepository.saveAndFlush(analysis) -> Completed (DOCUMENT/IMAGE SUMMARY)");
+//            criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysisId);
+            publishReevaluateAfterCommit(caseId, analysisId);
+            log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
+            return;
+        }
+
+        // VIDEO: VIDEO_EVENT 수신 시 완료
+        if (ft == FileType.VIDEO && request.getStage() == AnalysisStage.VIDEO_EVENT) {
+            analysis.setStatus(COMPLETED);
+//            analysisRepository.save(analysis);
+            analysisRepository.saveAndFlush(analysis);
+            log.info("analysisRepository.saveAndFlush(analysis) -> Completed (VIDEO VIEDO_EVENT)");
+//            criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysisId);
+            publishReevaluateAfterCommit(caseId, analysisId);
+            log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
+            return;
+        }
+
+        // AUDIO: QUESTION 수신 시 완료 IO(QUESTION 은 CONTRADICTION 이 있을 때만 온다는 가정)
+        if (ft == FileType.AUDIO && request.getStage() == AnalysisStage.QUESTION) {
+            analysis.setStatus(COMPLETED);
+//            analysisRepository.save(analysis);
+            analysisRepository.saveAndFlush(analysis);
+            log.info("analysisRepository.saveAndFlush(analysis) -> Completed (VIDEO VIEDO_EVENT)");
+//            criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysisId);
+            publishReevaluateAfterCommit(caseId, analysisId);
+            log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
+            return;
+        }
+
+        // AUDIO 타임아웃 완료는 스케줄러가 처리한다.
+        analysisRepository.save(analysis);
+        log.info("analysisRepository.save(analysis) -> Completed");
+        log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
     }
 
     private void handleSummary(AnalysisEntity analysis, JsonNode payloadNode) {
-        SummaryPayload payload = objectMapper.treeToValue(payloadNode, SummaryPayload.class);
-
-        analysis.setResultData(payload.toString()); // JSON 문자열 저장
-        analysis.setStatus(AnalysisStatus.COMPLETED);
-
-        analysisRepository.save(analysis);
+        // SUMMARY는 handleStageCallback()에서 공통으로 처리
+        // payload 스키마 검증만 수행
+        objectMapper.treeToValue(payloadNode, SummaryPayload.class);
     }
 
     private void handleTranscript(AnalysisEntity analysis, JsonNode payloadNode) {
-        TranscriptPayload payload = objectMapper.treeToValue(payloadNode, TranscriptPayload.class);
+        // 명세: payload는 배열([{temp_id, speaker, content}, ...])
+        if (!payloadNode.isArray()) {
+            throw new CustomException(ErrorCode.INVALID_TRANSCRIPT_TYPE);
+        }
+        ObjectNode root = readOrCreateRoot(analysis);
+        ObjectNode meta = getOrCreateMeta(root);
 
-        for (TranscriptPayload.TranscriptLine line : payload.getContent()) {
+        int saved = 0;
+        for (JsonNode n : payloadNode) {
+            String tempId = n.hasNonNull("temp_id") ? n.get("temp_id").asText() : null;
+            String speaker = n.hasNonNull("speaker") ? n.get("speaker").asText() : null;
+            String content = n.hasNonNull("content") ? n.get("content").asText() : null;
+
             TranscriptEntity transcript = TranscriptEntity.builder()
                     .analysis(analysis)
-                    .speaker(line.getSpeaker())
-                    .text(line.getContent())
+                    .speaker(speaker)
+                    .text(content)
                     .build();
-            transcriptRepository.save(transcript);
+
+            TranscriptEntity savedEntity = transcriptRepository.save(transcript);
+            saved++;
+
+            // temp_id -> transcriptId(UUID) 매핑 저장
+            if (tempId != null && !tempId.isBlank()) {
+                putTempMap(meta, "TRANSCRIPT", tempId, savedEntity.getTranscriptId());
+            }
         }
-        log.info("Transcript 저장 완료. AnalysisId={}, Transcript Entity 개수={}", analysis.getAnalysisId(), payload.getContent().size());
+        // temp_map 반영
+        analysis.setResultData(root.toString());
+        log.info("Transcript 저장 완료. AnalysisId={}, Transcript Entity 개수={}", analysis.getAnalysisId(), saved);
     }
 
     private void handleKeyStatement(AnalysisEntity analysis, JsonNode payloadNode) {
@@ -343,19 +440,35 @@ public class AnalysisService {
             payloads.add(objectMapper.treeToValue(n, KeyStatementPayload.class));
         }
 
+        ObjectNode root = readOrCreateRoot(analysis);
+        ObjectNode meta = getOrCreateMeta(root);
+
         for (KeyStatementPayload payload : payloads) {
-            KeyStatementEntity.builder()
-                    // ===========================
-                    // 수정 필요
-                    // ===========================
-                    .transcript(null)
-                    .statementText(null)
-                    // ===========================
+
+            // transcript_id는 TRANSCRIPT stage의 temp_id를 참조
+            UUID transcriptId = resolveTempMap(meta, "TRANSCRIPT", payload.getTranscriptId());
+            if (transcriptId == null) {
+                throw new CustomException(ErrorCode.TRANSCRIPT_NOT_FOUND);
+            }
+
+            TranscriptEntity transcript = transcriptRepository.findById(transcriptId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.TRANSCRIPT_NOT_FOUND));
+
+            KeyStatementEntity keyStatement = KeyStatementEntity.builder()
+                    .transcript(transcript)
+                    .statementText(payload.getStatementText())
                     .description(payload.getContent())
                     .build();
+
+            KeyStatementEntity savedEntity = keyStatementRepository.save(keyStatement);
+
+            // KEY_STATEMENT temp_id -> statementId(UUID) 매핑 저장
+            if (payload.getTempId() != null && !payload.getTempId().isBlank()) {
+                putTempMap(meta, "KEY_STATEMENT", payload.getTempId(), savedEntity.getStatementId());
+            }
         }
-        // transcript를 FK로 잡는 구조면 transcript 먼저 찾고 연결해야 함.
-        // 지금 코드엔 transcriptRepository가 있으니 가장 최신 transcript를 연결하는 등 정책 필요.
+        // temp_map 반영
+        analysis.setResultData(root.toString());
     }
 
     private void handleContradiction(UUID caseId, AnalysisEntity analysis, JsonNode payloadNode) {
@@ -370,22 +483,39 @@ public class AnalysisService {
             payloads.add(objectMapper.treeToValue(n, ContradictionPayload.class));
         }
 
+        ObjectNode root = readOrCreateRoot(analysis);
+        ObjectNode meta = getOrCreateMeta(root);
+
         for (ContradictionPayload payload : payloads) {
-            ContradictionEntity.builder()
-                    // ===========================
-                    // 수정 필요
-                    // ===========================
+            UUID st1Id = resolveTempMap(meta, "KEY_STATEMENT", payload.getStatementId1());
+            UUID st2Id = resolveTempMap(meta, "KEY_STATEMENT", payload.getStatementId2());
+            if (st1Id == null || st2Id == null) {
+                throw new CustomException(ErrorCode.KEY_STATEMENT_NOT_FOUND);
+            }
+
+            KeyStatementEntity st1 = keyStatementRepository.findById(st1Id)
+                    .orElseThrow(() -> new CustomException(ErrorCode.KEY_STATEMENT_NOT_FOUND));
+            KeyStatementEntity st2 = keyStatementRepository.findById(st2Id)
+                    .orElseThrow(() -> new CustomException(ErrorCode.KEY_STATEMENT_NOT_FOUND));
+
+            ContradictionEntity contradiction = ContradictionEntity.builder()
                     .caseEntity(caseEntity)
-                    .statement1(null) // statementTempId 찾아서 넣기
-                    .statement2(null) // counterStatementTempId 찾아서 넣기
-                    // ===========================
+                    .statement1(st1)
+                    .statement2(st2)
                     .type(payload.getType())
                     .status(ContradictionStatus.UNRESOLVED)
                     .description(payload.getDescription())
                     .build();
+
+            ContradictionEntity savedEntity = contradictionRepository.save(contradiction);
+
+            // CONTRADICTION temp_id -> contradictionId(UUID) 매핑 저장
+            if (payload.getTempId() != null && !payload.getTempId().isBlank()) {
+                putTempMap(meta, "CONTRADICTION", payload.getTempId(), savedEntity.getContradictionId());
+            }
         }
-        // transcript를 FK로 잡는 구조면 transcript 먼저 찾고 연결해야 함.
-        // 지금 코드엔 transcriptRepository가 있으니 가장 최신 transcript를 연결하는 등 정책 필요.
+        // temp_map 반영
+        analysis.setResultData(root.toString());
     }
 
 
@@ -397,18 +527,27 @@ public class AnalysisService {
             payloads.add(objectMapper.treeToValue(n, QuestionPayload.class));
         }
 
+        ObjectNode root = readOrCreateRoot(analysis);
+        ObjectNode meta = getOrCreateMeta(root);
+
         for (QuestionPayload payload : payloads) {
-            QuestionEntity.builder()
-                    // ===========================
-                    // 수정 필요
-                    // ===========================
-                    .contradiction(null)
+            UUID contradictionId = resolveTempMap(meta, "CONTRADICTION", payload.getContradictionId());
+            if (contradictionId == null) {
+                throw new CustomException(ErrorCode.CONTRADICTION_NOT_FOUND);
+            }
+
+            ContradictionEntity contradiction = contradictionRepository.findById(contradictionId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.CONTRADICTION_NOT_FOUND));
+
+            QuestionEntity question = QuestionEntity.builder()
+                    .contradiction(contradiction)
                     .content(payload.getQuestion())
-                    .rationale(null)
-                    // ===========================
+                    .rationale(payload.getRationale())
                     .build();
+            questionRepository.save(question);
         }
-        // contradiction id를 FK로 잡는 구조면 contradiction 먼저 찾고 연결해야 함.
+        // temp_map 반영
+        analysis.setResultData(root.toString());
     }
 
     private void handleVideoEvent(AnalysisEntity analysis, JsonNode payloadNode) {
@@ -420,34 +559,218 @@ public class AnalysisService {
         }
 
         for (VideoEventPayload payload : payloads) {
-            VideoEventEntity.builder()
+            VideoEventEntity videoEvent = VideoEventEntity.builder()
                     .analysisId(analysis.getAnalysisId())
                     .startTime(payload.getStartTime())
                     .endTime(payload.getEndTime())
                     .eventType(payload.getEventType())
                     .eventDescription(payload.getEventDescription())
                     .build();
+            videoEventRepository.save(videoEvent);
         }
     }
 
-    private void mergeStageResult(AnalysisEntity analysis, AnalysisStage stage, JsonNode payloadNode) {
+    /**
+     * stage 결과를 resultData(JSON)에 누적 저장하면서,
+     * - __meta.last_received_at: 마지막 콜백 수신 시각(ISO)
+     * - 플래그__meta.received: stage 수신 여부
+     * 를 함께 기록한다.
+     * 명세 형태: result_data: [{stage, payload}, ...]
+     */
+    private void mergeStageResultWithMeta(AnalysisEntity analysis, AnalysisStage stage, JsonNode payloadNode) {
         try {
-            ObjectNode root;
+            ObjectNode root = readOrCreateRoot(analysis);
 
-            if (analysis.getResultData() == null || analysis.getResultData().isBlank()) {
-                root = objectMapper.createObjectNode();
+            // meta 영역
+            ObjectNode meta = getOrCreateMeta(root);
+            meta.put("last_received_at", LocalDateTime.now().toString());
+
+            ObjectNode received;
+            JsonNode receivedNode = meta.get("received");
+            if (receivedNode != null && receivedNode.isObject()) {
+                received = (ObjectNode) receivedNode;
             } else {
-                JsonNode existing = objectMapper.readTree(analysis.getResultData());
-                root = existing != null && existing.isObject()
-                        ? (ObjectNode) existing
-                        : objectMapper.createObjectNode();
+                received = objectMapper.createObjectNode();
+                meta.set("received", received);
+            }
+            received.put(stage.name(), true);
+
+            // stage payload 저장(누적) - 명세 형태: result_data: [{stage, payload}, ...]
+            ArrayNode resultData;
+            JsonNode rdNode = root.get("result_data");
+            if (rdNode != null && rdNode.isArray()) {
+                resultData = (ArrayNode) rdNode;
+            } else {
+                resultData = objectMapper.createArrayNode();
+                root.set("result_data", resultData);
             }
 
-            root.set(stage.name(), payloadNode); // stage별로 덮어쓰기(같은 stage가 여러 번 오면 최신값)
-            analysis.setResultData(root.toString());
+            ObjectNode item = objectMapper.createObjectNode();
+            item.put("stage", stage.name());
+            item.set("payload", payloadNode);
+            resultData.add(item);
 
+            analysis.setResultData(root.toString());
         } catch (Exception e) {
             throw new CustomException(ErrorCode.JSON_PARSE_ERROR);
         }
+    }
+
+    /**
+     * AUDIO 분석 완료 타임아웃 처리:
+     * - TRANSCRIPT/KEY_STATEMENT는 반드시 온다.
+     * - CONTRADICTION/QUESTION은 없을 수 있다.
+     * - 마지막 콜백 수신 후 일정 시간 동안 CONTRADICTION이 없으면 COMPLETED로 마감한다.
+     *
+     * 주의: @EnableScheduling이 애플리케이션에 활성화되어 있어야 한다.
+     */
+    @Scheduled(fixedDelay = 15000) // 15초마다 체크
+    @Transactional
+    public void finalizeAudioAnalysesByTimeout() {
+        // COMPLETED 제외 전체를 가져와 메모리에서 필터
+        List<AnalysisEntity> all =
+                analysisRepository.findAllByStatusNotAndFile_FileType(AnalysisStatus.COMPLETED, FileType.AUDIO);
+
+        LocalDateTime now = LocalDateTime.now();
+        int finalized = 0;
+
+        for (AnalysisEntity analysis : all) {
+            if (analysis.getStatus() == COMPLETED) continue;
+            if (analysis.getFile() == null || analysis.getFile().getFileType() != FileType.AUDIO) continue;
+            if (analysis.getResultData() == null || analysis.getResultData().isBlank()) continue;
+
+            try {
+                JsonNode root = objectMapper.readTree(analysis.getResultData());
+                JsonNode meta = root.get("__meta");
+                if (meta == null || !meta.isObject()) continue;
+
+                JsonNode lastNode = meta.get("last_received_at");
+                if (lastNode == null || !lastNode.isTextual()) continue;
+
+                LocalDateTime last = LocalDateTime.parse(lastNode.asText());
+                // 30초 이상 추가 콜백이 없으면 타임아웃으로 마감
+                if (last.plusSeconds(30).isAfter(now)) continue;
+
+                JsonNode received = meta.get("received");
+                if (received == null || !received.isObject()) continue;
+
+                boolean hasTranscript = received.has("TRANSCRIPT");
+                boolean hasKeyStatement = received.has("KEY_STATEMENT");
+                boolean hasContradiction = received.has("CONTRADICTION");
+                boolean hasQuestion = received.has("QUESTION");
+
+                // 기본 요건(TRANSCRIPT + KEY_STATEMENT)이 없으면 아직 마감 불가
+                if (!hasTranscript || !hasKeyStatement) continue;
+
+                // CONTRADICTION이 있었는데 QUESTION이 없으면 규약 위반/미완료로 간주하여 마감하지 않음
+                if (hasContradiction && !hasQuestion) continue;
+
+                // CONTRADICTION이 없다면(즉, 질문 생성 단계로 갈 필요 없음) 타임아웃으로 완료 처리
+                if (!hasContradiction) {
+                    analysis.setStatus(COMPLETED);
+                    analysisRepository.save(analysis);
+
+                    // 법리 기준 재평가(파일 1개당 1회)
+                    UUID caseId = analysis.getFile().getCaseId();
+//                    criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysis.getAnalysisId());
+                    publishReevaluateAfterCommit(caseId, analysis.getAnalysisId());
+                    finalized++;
+                }
+            } catch (Exception ignored) {
+                // resultData 파싱 실패 시 스킵
+            }
+        }
+
+        if (finalized > 0) {
+            log.info("AUDIO 분석 타임아웃 마감 처리 완료. count={}", finalized);
+        }
+    }
+
+    /**
+     * 재평가는 반드시 콜백 트랜잭션 커밋 이후에 실행되어야 한다.
+     * (result_data / __meta 등이 DB에 반영되기 전에 reevaluate가 먼저 수행되는 문제 방지)
+     */
+    private void publishReevaluateAfterCommit(UUID caseId, UUID analysisId) {
+        try {
+//            criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysisId);
+            eventPublisher.publishEvent(new ReevaluateRequestEvent(caseId, analysisId));
+        } catch (Exception e) {
+            // 이벤트 발행 실패는 콜백 저장을 막지 않는다.
+            log.warn("Reevaluate 이벤트 발행 실패(콜백 저장은 유지). caseId={}, analysisId={}, reason={}",
+                    caseId, analysisId, e.getMessage(), e);
+
+        }
+    }
+
+    /** 콜백 저장 이후(after-commit) 실행을 위한 이벤트 */
+    private record ReevaluateRequestEvent(UUID caseId, UUID analysisId) {}
+
+    /**
+     * 트랜잭션 커밋 이후에, 비동기로 법리 기준을 재평가
+     * - 콜백 응답 지연을 줄이고(AI 서버 timeout 방지)
+     * - DB에 저장된 최신 result_data를 기반으로 재평가가 수행되도록 함
+     */
+    @TransactionalEventListener(
+            phase = org.springframework.transaction.event.TransactionPhase.AFTER_COMMIT)
+    @Async
+    public void onReevaluateAfterCommit(ReevaluateRequestEvent event) {
+        try {
+            criteriaEvaluationService.reevaluateAllByAnalysis(event.caseId(), event.analysisId());
+        } catch (Exception e) {
+            log.warn("Criteria Reevaluate 실패(콜백 저장은 유지). caseId={}, analysisId={}, reason={}",
+                    event.caseId(), event.analysisId(), e.getMessage(), e);
+        }
+    }
+
+
+    // Analysis 엔티티에서 result_data 가져오기
+    private ObjectNode readOrCreateRoot(AnalysisEntity analysis) {
+        try {
+            if (analysis.getResultData() == null || analysis.getResultData().isBlank()) {
+                return objectMapper.createObjectNode();
+            }
+            JsonNode existing = objectMapper.readTree(analysis.getResultData());
+            return existing != null && existing.isObject() ? (ObjectNode) existing : objectMapper.createObjectNode();
+        } catch (Exception e) {
+            return objectMapper.createObjectNode();
+        }
+    }
+    // Analysis 엔티티에서 result_data 아래 메타데이터 생성
+    private ObjectNode getOrCreateMeta(ObjectNode root) {
+        JsonNode metaNode = root.get("__meta");
+        if (metaNode != null && metaNode.isObject()) return (ObjectNode) metaNode;
+        ObjectNode meta = objectMapper.createObjectNode();
+        root.set("__meta", meta);
+        return meta;
+    }
+
+    // AnalysisEntity - resultData - 내부 메타데이터에 temp_map 생성 + tempId-UUID 매핑
+    private void putTempMap(ObjectNode meta, String group, String tempId, UUID realId) {
+        if (tempId == null || tempId.isBlank() || realId == null) return;
+
+        ObjectNode tempMap = meta.has("temp_map") && meta.get("temp_map").isObject()
+                ? (ObjectNode) meta.get("temp_map")
+                : objectMapper.createObjectNode();
+        meta.set("temp_map", tempMap);
+
+        ObjectNode groupNode = tempMap.has(group) && tempMap.get(group).isObject()
+                ? (ObjectNode) tempMap.get(group)
+                : objectMapper.createObjectNode();
+        tempMap.set(group, groupNode);
+
+        groupNode.put(tempId, realId.toString());
+    }
+
+    // AnalysisEntity - resultData - 내부 메타데이터에서 tempId->UUID 탐색 및 변환
+    private UUID resolveTempMap(ObjectNode meta, String group, String tempId) {
+        if (tempId == null || tempId.isBlank()) return null;
+        JsonNode tm = meta.get("temp_map");
+        if (tm == null || !tm.isObject()) return null;
+        JsonNode g = tm.get(group); // 스테이지 가져오기
+        if (g == null || !g.isObject()) return null;
+        JsonNode v = g.get(tempId); // 스테이지에서 tempId에 해당하는 실제 UUID 꺼내기
+        if (v == null || !v.isTextual()) return null;
+        try { return UUID.fromString(v.asText()); } // UUID return
+        catch (Exception e) { return null; }
     }
 }
