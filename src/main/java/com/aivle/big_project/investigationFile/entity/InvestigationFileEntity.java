@@ -17,7 +17,7 @@ import java.util.UUID;
 public class InvestigationFileEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     @UuidGenerator
     @Column(name = "file_id", columnDefinition = "uuid")
     private UUID fileId;

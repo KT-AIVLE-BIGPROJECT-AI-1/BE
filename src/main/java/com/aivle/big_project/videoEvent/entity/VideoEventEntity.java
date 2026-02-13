@@ -15,7 +15,7 @@ import java.util.UUID;
 public class VideoEventEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "event_id")
     private UUID eventId;
 

@@ -18,7 +18,7 @@ import java.util.UUID;
 public class KeyStatementEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "statement_id")
     private UUID statementId;
 

@@ -17,7 +17,7 @@ import java.util.UUID;
 public class ContradictionEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "contradiction_id")
     private UUID contradictionId;
 

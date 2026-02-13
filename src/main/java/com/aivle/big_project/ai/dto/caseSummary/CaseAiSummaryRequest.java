@@ -13,6 +13,6 @@ public class CaseAiSummaryRequest {
     private String title;
     private String description;
     private String type;
-    private LocalDateTime occurred_at;
+    private LocalDateTime occurredAt;
     private String location;
 }

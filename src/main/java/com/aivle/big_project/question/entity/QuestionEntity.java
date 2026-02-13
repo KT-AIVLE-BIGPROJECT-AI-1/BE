@@ -15,7 +15,7 @@ import java.util.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class QuestionEntity {
 
-    @Id
+    @Id @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "question_id", columnDefinition = "UUID")
     private UUID questionId;
 

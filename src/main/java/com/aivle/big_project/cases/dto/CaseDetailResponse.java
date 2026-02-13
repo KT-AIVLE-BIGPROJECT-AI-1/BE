@@ -35,8 +35,8 @@ public class CaseDetailResponse {
     private String type;
     private String status;
 
-    @JsonProperty("occured_at")
-    private LocalDateTime occuredAt;
+    @JsonProperty("occurred_at")
+    private LocalDateTime occurredAt;
     private String location;
 
     @JsonProperty("can_edit")

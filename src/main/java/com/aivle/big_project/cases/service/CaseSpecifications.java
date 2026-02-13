@@ -29,7 +29,7 @@ public class CaseSpecifications {
         return (root, query, cb) -> cb.equal(root.get("type"), type);
     }
 
-    public static Specification<CaseEntity> occuredAtBetween(LocalDateTime start, LocalDateTime end) {
+    public static Specification<CaseEntity> occurredAtBetween(LocalDateTime start, LocalDateTime end) {
         if (start == null && end == null) {
             return (root, query, cb) -> cb.conjunction();
         }
