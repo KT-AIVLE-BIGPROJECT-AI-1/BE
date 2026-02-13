@@ -35,14 +35,25 @@ public class FinalAnalysisService {
         // AI 호출
 //        AiFinalAnalysisResponse ai = aiFinalAnalysisClient.generateFinalAnalysis(caseId);
 
+/*FinalAnalysis saved = finalAnalysisRepository.save(
+        FinalAnalysis.builder()
+                .aCase(aCase)
+                .recommendedDecision(parseDecision(ai.getRecommendedDecision()))
+                .decisionSummary(ai.getDecisionSummary())
+                .legalIssuesSummary(ai.getLegalIssuesSummary())
+                .evidenceSufficiencySummary(ai.getEvidenceSufficiencySummary())
+                .remainingRiskSummary(ai.getRemainingRiskSummary())
+                .build()
+);*/
+
         FinalAnalysis saved = finalAnalysisRepository.save(
                 FinalAnalysis.builder()
                         .aCase(aCase)
-//                        .recommendedDecision(parseDecision(ai.getRecommendedDecision()))
-//                        .decisionSummary(ai.getDecisionSummary(), "decision_summary")
-//                        .legalIssuesSummary(ai.getLegalIssuesSummary(), "legal_issues_summary")
-//                        .evidenceSufficiencySummary(ai.getEvidenceSufficiencySummary(), "evidence_sufficiency_summary")
-//                        .remainingRiskSummary(ai.getRemainingRiskSummary(), "remaining_risk_summary")
+                        .recommendedDecision(RecommendedDecision.TRANSFER)
+                        .decisionSummary("AI 분석 대기중")
+                        .legalIssuesSummary("AI 분석 대기중")
+                        .evidenceSufficiencySummary("AI 분석 대기중")
+                        .remainingRiskSummary("AI 분석 대기중")
                         .build()
         );
 
@@ -73,7 +84,11 @@ public class FinalAnalysisService {
         return FinalAnalysisResponse.builder()
                 .finalId(fa.getFinalId())
                 .caseId(fa.getACase().getCaseId())
-                .recommendedDecision(fa.getRecommendedDecision().name())
+                .recommendedDecision(
+                        fa.getRecommendedDecision() != null
+                                ? fa.getRecommendedDecision().name()
+                                : null
+                )
                 .decisionSummary(fa.getDecisionSummary())
                 .legalIssuesSummary(fa.getLegalIssuesSummary())
                 .evidenceSufficiencySummary(fa.getEvidenceSufficiencySummary())

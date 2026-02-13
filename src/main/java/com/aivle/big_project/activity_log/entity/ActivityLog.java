@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Getter @NoArgsConstructor
-@Builder @AllArgsConstructor
+@Builder @AllArgsConstructor @Setter
 @Entity @Table(name = "ACTIVITY_LOG")
 public class ActivityLog {
 
@@ -43,8 +43,8 @@ public class ActivityLog {
     private Map<String, Object> payload;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private ActivityLogStatus status;
+    @Column(name = "status", nullable = false)
+    private ActivityLogStatus status = ActivityLogStatus.NOT_INCLUDED;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
