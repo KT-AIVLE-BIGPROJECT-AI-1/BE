@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -205,36 +206,59 @@ public class ReportService {
             UUID userId
     ) {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
-        assertAssignee(aCase, userId); // 사건 - 사용자 간 권한 검사
+        assertAssignee(aCase, userId);
 
         ReportType type = parseType(req.getType());
 
-        // 보고서 type 별 필수값 검증
-        assertField(type, req.getSelectedLogIds(), req.getFinalId());
+        UUID finalId = req.getFinalId();
 
-        Report report = Report.builder()
-                .aCase(aCase)
-                .type(type)
-                .status(ReportStatus.DRAFT)
-                .title(req.getTitle())
-                .content(req.getContent())
-                .filePath(null)
-                .finalId(req.getFinalId())
-                .build();
+        // 🔥 INTERIM이 아닌 경우 → 최신 FinalAnalysis 자동 연결
+        if (type != ReportType.INTERIM) {
+            FinalAnalysis latest = latestFinalAnalysis(caseId);
+            finalId = latest.getFinalId();
+        }
 
-        Report saved = reportRepository.save(report);
+        // 이제 검증
+        assertField(type, req.getSelectedLogIds(), finalId);
+
+        Optional<Report> existingDraft =
+                reportRepository.findDraft(
+                        caseId,
+                        type,
+                        ReportStatus.DRAFT
+                );
+
+        Report report;
+
+        if (existingDraft.isPresent()) {
+            report = existingDraft.get();
+            report.updateDraft(req.getTitle(), req.getContent());
+            report.setFinalId(finalId);
+        } else {
+            report = Report.builder()
+                    .aCase(aCase)
+                    .type(type)
+                    .status(ReportStatus.DRAFT)
+                    .title(req.getTitle())
+                    .content(req.getContent())
+                    .filePath(null)
+                    .finalId(finalId)
+                    .build();
+
+            reportRepository.save(report);
+        }
 
         if (type == ReportType.INTERIM) {
-            // 포함된 모든 activity_log에 대해 report_id 연결해 귀속시키기
-            // 새로 선택된 것 모두 attach
-            List<ActivityLog> incoming = activityLogRepository.findAllById(req.getSelectedLogIds());
-            for(ActivityLog log : incoming) {
+            List<ActivityLog> incoming =
+                    activityLogRepository.findAllById(req.getSelectedLogIds());
+
+            for (ActivityLog log : incoming) {
                 log.setReport(report);
             }
             activityLogRepository.saveAll(incoming);
         }
 
-        return toDetail(saved);
+        return toDetail(report);
     }
 
     // 보고서 임시저장 업데이트
@@ -388,7 +412,7 @@ public class ReportService {
             throw new RuntimeException("최종 통합분석이 존재하지 않습니다.");
         }
 
-        return list.get(0); // 최신순이므로 첫번째가 최신
+        return list.getFirst(); // 최신순이므로 첫번째가 최신
     }
 
     private void assertField(ReportType type, List<UUID> selectedLogIds, UUID finalId) {
@@ -495,7 +519,7 @@ public class ReportService {
         String v = raw.trim().toUpperCase();
         return switch (v) {
             case "TRANSFER" -> ReportType.TRANSFER;
-            case "NO_TRANSFER" -> ReportType.NON_TRANSFER;
+            case "NON_TRANSFER" -> ReportType.NON_TRANSFER;
             case "SUSPENSION" -> ReportType.SUSPENSION;
             default -> throw new RuntimeException("decision_type 값이 올바르지 않습니다: " + raw);
         };
