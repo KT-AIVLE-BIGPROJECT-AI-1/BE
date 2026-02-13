@@ -1,5 +1,8 @@
 package com.aivle.big_project.chat_log.service;
 
+import com.aivle.big_project.ai.AiClient;
+import com.aivle.big_project.ai.dto.chat.ChatCreateRequest;
+import com.aivle.big_project.ai.dto.chat.ChatCreateResponse;
 import com.aivle.big_project.analysis.entity.AnalysisStatus;
 import com.aivle.big_project.analysis.repository.AnalysisRepository;
 import com.aivle.big_project.cases.entity.CaseEntity;
@@ -12,19 +15,26 @@ import com.aivle.big_project.chat_log.entity.ChatLogEntity;
 import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.investigationFile.entity.FileType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@EnableAsync
 public class ChatService {
 
     private final CaseRepository caseRepository;
     private final AnalysisRepository analysisRepository;
     private final ChatLogRepository chatLogRepository;
+    private final AiClient aiClient;
+    private final ObjectMapper objectMapper;
+    private final ChatAsyncWorker worker;
 
     public ChatListResponse getChats(UUID caseId) {
 
@@ -49,10 +59,9 @@ public class ChatService {
 
         validateVideoAnalysisCompleted(caseId);
 
-        // 채팅 저장
+        // 1) 사용자 채팅 저장
         ChatLogEntity userChat = chatLogRepository.save(
                 ChatLogEntity.builder()
-                        .chatId(UUID.randomUUID())
                         .caseEntity(caseEntity)
                         .role("USER")
                         .message(message)
@@ -61,7 +70,22 @@ public class ChatService {
                         .build()
         );
 
-        return ChatItemResponse.from(userChat, caseId);
+        // 2) AI 응답 placeholder 저장 (프론트는 polling으로 이후 갱신)
+        ChatLogEntity pendingAiChat = chatLogRepository.save(
+                ChatLogEntity.builder()
+                        .caseEntity(caseEntity)
+                        .role("AI")
+                        .message(null)
+                        .usedContext(null)
+                        .createdAt(LocalDateTime.now())
+                        .build()
+        );
+
+        // 3) 비동기 AI 호출 시작 (즉시 반환)
+        worker.requestAiAndSaveAsync(caseId, pendingAiChat.getChatId(), message);
+
+        // 4) 프론트에는 placeholder(AI) row를 반환 (polling으로 message가 채워짐)
+        return ChatItemResponse.from(pendingAiChat, caseId);
     }
 
     // 공통 로직 (video 분석 1개 이상 존재하는지)

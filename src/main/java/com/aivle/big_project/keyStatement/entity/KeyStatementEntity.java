@@ -1,5 +1,6 @@
 package com.aivle.big_project.keyStatement.entity;
 
+import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.transcript.entity.TranscriptEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -16,7 +17,7 @@ import java.util.UUID;
 public class KeyStatementEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "statement_id")
     private UUID statementId;
 
@@ -32,4 +33,9 @@ public class KeyStatementEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }

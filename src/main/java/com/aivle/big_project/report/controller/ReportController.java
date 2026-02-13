@@ -44,7 +44,7 @@ public class ReportController {
     * */
 
     // 수사 결과 보고 초안 생성
-    @GetMapping("/cases/{caseId}/reports/final")
+    @GetMapping("/cases/{caseId}/reports/final/draft")
     public ResponseEntity<?> generateFinalDraft(@PathVariable UUID caseId) {
         UUID userId = currentUserId();
         return ResponseEntity.ok(reportService.generateFinalReport(caseId, userId));
@@ -65,7 +65,7 @@ public class ReportController {
     * */
 
     // 수사 결정서 초안 생성
-    @GetMapping("/cases/{caseId}/reports/decision")
+    @GetMapping("/cases/{caseId}/reports/decision/draft")
     public ResponseEntity<ReportGenerateResponse> generateDecisionDraft(
             @PathVariable UUID caseId,
             @RequestParam(name = "decision_type") String decisionType
