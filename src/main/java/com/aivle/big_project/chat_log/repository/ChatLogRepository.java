@@ -19,4 +19,6 @@ public interface ChatLogRepository extends JpaRepository<ChatLogEntity, UUID> {
     List<ChatLogEntity> findByCaseIdOrderByCreatedAtDesc(
             @Param("caseId") UUID caseId
     );
+
+    List<ChatLogEntity> findAllByCaseEntity_CaseIdOrderByCreatedAtAsc(UUID caseId);
 }
