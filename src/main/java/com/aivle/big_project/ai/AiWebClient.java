@@ -7,12 +7,13 @@ import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryResponse;
 import com.aivle.big_project.ai.dto.chat.ChatCreateRequest;
 import com.aivle.big_project.ai.dto.chat.ChatCreateResponse;
 import com.aivle.big_project.ai.dto.finalAnalysis.FinalAnalysisRequest;
-import com.aivle.big_project.ai.dto.finalAnalysis.FinalAnalysisResponse;
+import com.aivle.big_project.ai.dto.finalAnalysis.AiFinalAnalysisResponse;
 import com.aivle.big_project.ai.dto.legalCriteria.CriteriaEvaluationRequest;
 import com.aivle.big_project.ai.dto.legalCriteria.CriteriaEvaluationResponse;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaRequest;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaResponse;
 import com.aivle.big_project.ai.dto.report.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,7 +23,7 @@ public class AiWebClient implements AiClient{
 
     private final WebClient webClient;
 
-    public AiWebClient(WebClient webClient) {
+    public AiWebClient(@Qualifier("aiHttpWebClient") WebClient webClient) {
         this.webClient = webClient;
     }
 
@@ -58,8 +59,8 @@ public class AiWebClient implements AiClient{
     }
 
     @Override
-    public FinalAnalysisResponse createFinalAnalysis(FinalAnalysisRequest request) {
-        return postJson("/analysis/final", request, FinalAnalysisResponse.class);
+    public AiFinalAnalysisResponse createFinalAnalysis(FinalAnalysisRequest request) {
+        return postJson("/analysis/final", request, AiFinalAnalysisResponse.class);
     }
 
     @Override

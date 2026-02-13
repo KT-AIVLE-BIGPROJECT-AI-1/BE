@@ -27,12 +27,12 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 200MB
+      max-file-size: 500MB
+      max-request-size: 10000MB
 jwt:
-    secret: ${JWT_SECRET:}
-    access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
-    refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
+  secret: ${JWT_SECRET:}
+  access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
+  refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
 
 logging:
   level:
@@ -40,6 +40,6 @@ logging:
     org.hibernate.jdbc.bind: trace
 
 ai:
-  base-url: "http://localhost:8000"
+  base-url: ${AI_BASE_URL:"http://localhost:8000"}
   connect-timeout-ms: 2000
   response-timeout-ms: 60000

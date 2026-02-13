@@ -7,7 +7,7 @@ import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryResponse;
 import com.aivle.big_project.ai.dto.chat.ChatCreateRequest;
 import com.aivle.big_project.ai.dto.chat.ChatCreateResponse;
 import com.aivle.big_project.ai.dto.finalAnalysis.FinalAnalysisRequest;
-import com.aivle.big_project.ai.dto.finalAnalysis.FinalAnalysisResponse;
+import com.aivle.big_project.ai.dto.finalAnalysis.AiFinalAnalysisResponse;
 import com.aivle.big_project.ai.dto.legalCriteria.CriteriaEvaluationRequest;
 import com.aivle.big_project.ai.dto.legalCriteria.CriteriaEvaluationResponse;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaRequest;
@@ -24,7 +24,7 @@ public interface AiClient {
     // 수사 자료 분석
     FileAnalysisResponse uploadInvestigationFile(FileAnalysisRequest request);
     // 최종 통합분석 생성
-    FinalAnalysisResponse createFinalAnalysis(FinalAnalysisRequest request);
+    AiFinalAnalysisResponse createFinalAnalysis(FinalAnalysisRequest request);
     // '수사보고' 초안 생성
     InterimReportCreateResponse createInterimReport(InterimReportCreateRequest request);
     // '수사결과보고' 초안 생성
