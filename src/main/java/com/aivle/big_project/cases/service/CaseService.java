@@ -122,7 +122,7 @@ public class CaseService {
                 .summary(null)
                 .build();
 
-        CaseEntity saved = caseRepository.save(newCase);
+        CaseEntity saved = caseRepository.saveAndFlush(newCase);
 
         // AI 호출 내용 - 구조화 요약 + 법리 생성 실패해도 사건 생성됨
         try {
@@ -389,7 +389,8 @@ public class CaseService {
                 .build();
     }
 
-    // AI LegalCriteriaResponse를 DB 엔티티로 저장
+
+    // AI LegalCriteriaResponse(legal_issues -> legal_criteria) DB 저장
     private void saveLegalCriteriaFromDto(CaseEntity savedCase, LegalCriteriaResponse resp) {
         List<LegalIssue> issues = resp.getLegalIssues();
         if (issues == null || issues.isEmpty()) return;

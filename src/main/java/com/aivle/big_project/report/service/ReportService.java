@@ -4,10 +4,16 @@ import com.aivle.big_project.activity_log.entity.ActivityLog;
 import com.aivle.big_project.activity_log.entity.ActivityLogStatus;
 import com.aivle.big_project.activity_log.repository.ActivityLogRepository;
 
+import com.aivle.big_project.ai.AiClient;
+import com.aivle.big_project.ai.dto.caseSummary.CaseDetail;
+import com.aivle.big_project.ai.dto.caseSummary.CaseSummary;
+import com.aivle.big_project.ai.dto.report.*;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.repository.CaseRepository;
 import com.aivle.big_project.final_analysis.entity.FinalAnalysis;
 import com.aivle.big_project.final_analysis.repository.FinalAnalysisRepository;
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.report.dto.*;
 import com.aivle.big_project.report.entity.Report;
 import com.aivle.big_project.report.entity.ReportStatus;
@@ -19,14 +25,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
-@Service
+@Service @Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReportService {
@@ -36,6 +42,9 @@ public class ReportService {
     private final ActivityLogRepository activityLogRepository;
     private final ObjectStorageService objectStorageService;
     private final FinalAnalysisRepository finalAnalysisRepository;
+
+    private final AiClient aiClient;
+    private final ObjectMapper objectMapper;
 
 
     // 중간 수사 보고 초안 생성
@@ -57,19 +66,64 @@ public class ReportService {
         }
 
         // AI 호출 (초안 생성)
-//        var aiDraft = aiReportClient.generateInterimDraft(caseId, logs);
-        // 사건 정보 + 선택된 모든 로그의 세부 정보 담아서 요청
-        // title, content(JSON) 받아오기
+        // case_detail + selected_activity_logs 형태로 요청
+        CaseSummary summaryDto = parseAndNormalizeCaseSummary(aCase);
+
+        CaseDetail caseDetail = CaseDetail.builder()
+                .caseId(aCase.getCaseId())
+                .title(aCase.getTitle())
+                .description(aCase.getDescription())
+                .summary(summaryDto)
+                .type(aCase.getType() != null ? aCase.getType().name() : null)
+                .status(aCase.getStatus() != null ? aCase.getStatus().name() : null)
+                .occurredAt(aCase.getOccurredAt().toString())
+                .location(aCase.getLocation())
+                .build();
+
+        List<InterimReportCreateRequest.ActivityLog> selectedLogs = logs.stream()
+                .map(aLog -> {
+                    String payloadJson = null;
+                    try {
+                        payloadJson = (aLog.getPayload() == null) ?
+                                null : objectMapper.writeValueAsString(aLog.getPayload());
+                    } catch (Exception e) {
+                        log.warn("Activity Log payload JSON 직렬화 실패. logId={}, reason={}", aLog.getLogId(), e.getMessage());
+                        payloadJson = "{}";
+                    }
+                    return InterimReportCreateRequest.ActivityLog.builder()
+                            .logId(aLog.getLogId())
+                            .field(aLog.getField() != null ? aLog.getField().name() : null)
+                            .activityType(aLog.getActivityType() != null ? aLog.getActivityType().name() : null)
+                            .payload(payloadJson)
+                            .createdAt(aLog.getCreatedAt().toString())
+                            .build();
+                })
+                .toList();
+
+        InterimReportCreateRequest request = InterimReportCreateRequest.builder()
+                .caseDetail(caseDetail)
+                .selectedActivityLogs(selectedLogs)
+                .build();
+
+        InterimReportCreateResponse response = aiClient.createInterimReport(request);
+
+        // content는 JSON/TEXT 모두 가능하므로, 서버 저장용으로는 String(JSON)으로 직렬화
+        String contentJson = null;
+        try {
+            contentJson = (response != null && response.getContent() != null)
+                    ? objectMapper.writeValueAsString(response.getContent())
+                    : null;
+        } catch (Exception ignored) {
+        }
 
         return ReportGenerateResponse.builder()
                 .caseId(caseId)
                 .type(ReportType.INTERIM.name())
-//                .title(aiDraft.title())
-//                .content(aiDraft.content())
+                .title(response.getTitle())
+                .content(contentJson)
                 .selectedLogIds(logIds)
                 .build();
     }
-
 
     // 중간 수사 보고 작성완료
     @Transactional
@@ -123,12 +177,40 @@ public class ReportService {
         // var aiDraft = aiReportClient.generateFinalDraft(caseId, finalAnalysis);
         // ============================================
 
+        CaseSummary summaryDto = parseAndNormalizeCaseSummary(aCase);
+        CaseDetail caseDetail = CaseDetail.builder()
+                .caseId(caseId)
+                .title(aCase.getTitle())
+                .description(aCase.getDescription())
+                .summary(summaryDto)
+                .type(aCase.getType() != null ? aCase.getType().name() : null)
+                .status(aCase.getStatus() != null ? aCase.getStatus().name() : null)
+                .occurredAt(aCase.getOccurredAt().toString())
+                .location(aCase.getLocation())
+                .build();
+
+        FinalReportCreateRequest request = FinalReportCreateRequest.builder()
+                .caseDetail(caseDetail)
+                .finalAnalysis(toAiFinalAnalysis(finalAnalysis))
+                .build();
+        log.info("Final Report Creation Requested : " + request.toString());
+        // AI 호출
+        // 사건 정보 + 찾아낸 가장 최신 최종통합분석의 세부 내용 모두 담아서 요청
+        FinalReportCreateResponse response = aiClient.createFinalReport(request);
+
+        String contentJson;
+        try {
+            contentJson = objectMapper.writeValueAsString(response.getContent());
+        } catch (Exception e) {
+            throw new RuntimeException("AI 결과보고 content 직렬화 실패", e);
+        }
+
         return ReportGenerateResponse.builder()
                 .caseId(caseId)
                 .type(ReportType.FINAL.name())
-                // .title(aiDraft.title())
-                // .content(aiDraft.content())
-                .selectedLogIds(List.of())   // 결과보고는 로그 없음
+                .title(response.getTitle())
+                .content(contentJson)
+                .selectedLogIds(List.of()) // 결과보고는 로그 없음
                 .build();
     }
 
@@ -163,15 +245,48 @@ public class ReportService {
         FinalAnalysis finalAnalysis = latestFinalAnalysis(caseId);
 
         // AI 호출
-//        AiReportClient.AiDraftResult aiDraft = aiReportClient.generateDecisionDraft(caseId, finalAnalysis, decisionReportType);
         // 사건 정보 + 결정서 종류(송치/불송치/중지) + 찾아낸 가장 최신 최종통합분석의 세부 내용 모두 담아서 요청
-        // title, content(JSON) 받아오기
+        CaseSummary summaryDto = parseAndNormalizeCaseSummary(aCase);
+
+        CaseDetail caseDetail = CaseDetail.builder()
+                .caseId(aCase.getCaseId())
+                .title(aCase.getTitle())
+                .description(aCase.getDescription())
+                .summary(summaryDto)
+                .type(aCase.getType() != null ? aCase.getType().name() : null)
+                .status(aCase.getStatus() != null ? aCase.getStatus().name() : null)
+                .occurredAt(aCase.getOccurredAt().toString())
+                .location(aCase.getLocation())
+                .build();
+
+        String decisionTypeForAi = switch (decisionReportType) {
+            case TRANSFER -> "TRANSFER";
+            case NON_TRANSFER -> "NON_TRANSFER";
+            case SUSPENSION -> "SUSPENSION";
+            default -> throw new RuntimeException("decision_type 값이 올바르지 않습니다: " + decisionTypeRaw);
+        };
+
+        DecisionReportCreateRequest request = DecisionReportCreateRequest.builder()
+                .caseDetail(caseDetail)
+                .decisionType(decisionTypeForAi)
+                .finalAnalysis(toAiFinalAnalysis(finalAnalysis))
+                .build();
+
+        DecisionReportCreateResponse response = aiClient.createDecisionReport(request);
+
+        String contentJson = null;
+        try {
+            contentJson = (response != null && response.getContent() != null)
+                    ? objectMapper.writeValueAsString(response.getContent())
+                    : null;
+        } catch (Exception ignored) {
+        }
 
         return ReportGenerateResponse.builder()
                 .caseId(caseId)
                 .type(decisionReportType.name())
-//                .title(aiDraft.title())
-//                .content(aiDraft.content())
+                .title(response.getTitle())
+                .content(contentJson)
                 .selectedLogIds(List.of())
                 .build();
     }
@@ -376,6 +491,34 @@ public class ReportService {
             throw new RuntimeException("이미 작성 완료된 보고서입니다.");
         }
         return report;
+    }
+
+    private AiFinalAnalysis toAiFinalAnalysis(FinalAnalysis entity) {
+        if (entity == null) return null;
+
+        return AiFinalAnalysis.builder()
+                .finalId(entity.getFinalId())
+                .caseId(entity.getACase().getCaseId())
+                .recommendedDecision(String.valueOf(entity.getRecommendedDecision()))
+                .decisionSummary(entity.getDecisionSummary())
+                .legalIssuesSummary(entity.getLegalIssuesSummary())
+                .evidenceSufficiencySummary(entity.getEvidenceSufficiencySummary())
+                .remainingRiskSummary(entity.getRemainingRiskSummary())
+                .createdAt(entity.getCreatedAt().toString())
+                .build();
+    }
+
+    private CaseSummary parseAndNormalizeCaseSummary(CaseEntity aCase) {
+        CaseSummary summaryDto = null;
+        try {
+            // CaseEntity.summary 가 JSON 문자열이라면 CaseSummary로 파싱
+            if (aCase.getSummary() != null && !aCase.getSummary().isBlank()) {
+                summaryDto = objectMapper.readValue(aCase.getSummary(), CaseSummary.class);
+            }
+        } catch (Exception ignored) {
+            // summary 파싱 실패 시 null 유지 (단, AI 스키마가 string required라면 Case 생성 단계에서 summary를 보장해야 함)
+        }
+        return summaryDto;
     }
 
     private FinalAnalysis latestFinalAnalysis(UUID caseId) {

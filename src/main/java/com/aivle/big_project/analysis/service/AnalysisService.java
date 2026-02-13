@@ -217,7 +217,7 @@ public class AnalysisService {
                     .summary(parsedSummary)
                     .type(aCase.getType() == null ? null : aCase.getType().name())
                     .status(aCase.getStatus() == null ? null : aCase.getStatus().name())
-                    .occurredAt(aCase.getOccurredAt())
+                    .occurredAt(aCase.getOccurredAt().toString())
                     .location(aCase.getLocation())
                     .build();
 

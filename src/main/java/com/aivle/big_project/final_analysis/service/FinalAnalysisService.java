@@ -36,7 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -70,7 +69,7 @@ public class FinalAnalysisService {
                 .summary(summaryDto)
                 .type(aCase.getType().name())
                 .status(aCase.getStatus().name())
-                .occurredAt(aCase.getOccurredAt())
+                .occurredAt(aCase.getOccurredAt().toString())
                 .location(aCase.getLocation())
                 .build();
 
