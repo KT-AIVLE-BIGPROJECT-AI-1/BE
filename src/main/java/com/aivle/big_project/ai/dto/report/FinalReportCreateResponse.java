@@ -25,11 +25,11 @@ class FinalReportContent {
     private String caseName;
     private String suspect;
     private String charge;
-    private String specialNotes;
     private CaseOverview caseOverview;
     private InvestigationResult investigationResult;
     private LegalReview legalReview;
     private TransferOpinion transferOpinion;
+    private String specialNotes;
 }
 
 @Getter
