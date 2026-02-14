@@ -37,5 +37,4 @@ class InterimReportContent {
 class CurrentStatus {
     private String collectedEvidence;
     private String legalReview;
-    private String progressRate;
 }
