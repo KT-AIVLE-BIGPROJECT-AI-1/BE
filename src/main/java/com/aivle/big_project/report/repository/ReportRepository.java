@@ -26,6 +26,29 @@ public interface ReportRepository extends JpaRepository<Report, UUID> {
             ReportStatus status
     );
 
+    @Query("""
+    SELECT r
+    FROM Report r
+    JOIN r.aCase c
+    JOIN c.user u
+    WHERE u.userId = :userId
+    ORDER BY r.updatedAt DESC
+""")
+    List<Report> findReportsByUserId(@Param("userId") UUID userId);
+
+    @Query("""
+    SELECT r
+    FROM Report r
+    JOIN r.aCase c
+    JOIN c.user u
+    WHERE u.userId = :userId
+      AND r.type IN :types
+    ORDER BY r.updatedAt DESC
+""")
+    List<Report> findReportsByUserIdAndTypeIn(
+            @Param("userId") UUID userId,
+            @Param("types") List<ReportType> types
+    );
 
     @Query("""
     select r

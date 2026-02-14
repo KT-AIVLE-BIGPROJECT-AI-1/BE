@@ -11,11 +11,13 @@ import com.aivle.big_project.transcript.entity.TranscriptEntity;
 import com.aivle.big_project.transcript.repository.TranscriptRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class TranscriptService {
 
     private final AnalysisRepository analysisRepository;
