@@ -434,9 +434,8 @@ public class ReportService {
 
         List<ReportType> filterTypes = parseFilterTypes(type);
         List<Report> reports = filterTypes.isEmpty()
-                ? reportRepository.findByACase_User_UserIdOrderByUpdatedAtDesc(userId)
-                : reportRepository.findByACase_User_UserIdAndTypeInOrderByUpdatedAtDesc(userId, filterTypes);
-
+                ? reportRepository.findReportsByUserId(userId)
+                : reportRepository.findReportsByUserIdAndTypeIn(userId, filterTypes);
         return ReportListResponse.builder()
                 .reports(reports.stream().map(this::toSummary).toList())
                 .build();
