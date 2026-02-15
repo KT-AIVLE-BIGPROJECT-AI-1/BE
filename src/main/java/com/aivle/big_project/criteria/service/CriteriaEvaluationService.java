@@ -193,6 +193,19 @@ public class CriteriaEvaluationService {
 
         // 각 법리기준 AI로 평가 및 저장
         for (CriteriaEntity c : criteriaList) {
+            // 이미 SATISFIED인 경우에는 재평가로 상태를 변경하지 않음
+            CriteriaEvaluationEntity latestEvaluation =
+                    criteriaEvaluationRepository
+                            .findByCriteria_CriteriaIdOrderByCreatedAtDesc(c.getCriteriaId())
+                            .stream()
+                            .findFirst()
+                            .orElse(null);
+
+            if (latestEvaluation != null
+                    && latestEvaluation.getStatus() == CriteriaEvaluationStatus.SATISFIED) {
+                log.info("법리기준 충족평가 (Re) 생략됨 (already SATISFIED): criteriaId={}", c.getCriteriaId());
+                continue;
+            }
             LegalIssueEntity issueEntity = c.getLegalIssue();
 
             LegalIssue aiIssue = LegalIssue.builder()
