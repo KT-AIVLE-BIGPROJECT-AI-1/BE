@@ -24,6 +24,7 @@ public class DecisionReportCreateResponse {
 class DecisionContent {
     private String caseName;
     private String suspect;
+    private String charge;
     private String ruling;
     private CaseOverview caseOverview;
     private JudgementReason judgementReason;
