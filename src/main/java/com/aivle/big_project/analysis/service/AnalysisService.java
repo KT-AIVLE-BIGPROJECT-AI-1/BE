@@ -262,7 +262,9 @@ public class AnalysisService {
             }
 
             // Legal Criteria 가져오기 (Case 관련) + LegalIssue 포함해서 AI DTO로 변환
-            List<CriteriaEntity> legalCriteriaEntities = criteriaRepository.findAllByLegalIssue_CaseEntity_CaseIdOrderByCreatedAtAsc(caseId);
+//            List<CriteriaEntity> legalCriteriaEntities = criteriaRepository.findAllByLegalIssue_CaseEntity_CaseIdOrderByCreatedAtAsc(caseId);
+
+            List<CriteriaEntity> legalCriteriaEntities = criteriaRepository.findAllWithLegalIssueByLegalIssue_CaseEntity_CaseIdOrderByCreatedAtAsc(caseId);
 
             List<LegalCriteria> aiLegalCriteria = legalCriteriaEntities.stream()
                     .map(lc -> {
@@ -305,24 +307,32 @@ public class AnalysisService {
     public void handleStageCallback(UUID caseId, UUID analysisId, AiCallbackRequest request) {
         log.info("==handleStageCallback Start== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
         // analysis 존재 여부 확인 + 사건 매칭 검증
-        AnalysisEntity analysis = analysisRepository.findById(analysisId)
+//        AnalysisEntity analysis = analysisRepository.findById(analysisId)
+        AnalysisEntity analysis = analysisRepository.findByIdForUpdate(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
         boolean wasCompleted = analysis.getStatus() == COMPLETED;
 
-        // 이미 COMPLETED 된 분석에 대한 중복 콜백 처리
-        // - VIDEO_EVENT는 여러 번 올 수 있으므로, COMPLETED 이후에도 이벤트 저장 허용
+        // 이미 COMPLETED 된 분석에 대한 추가 콜백 처리
+        // - VIDEO_EVENT는 여러 번 올 수 있음
+        // - AUDIO는 빈 CONTRADICTION+QUESTION으로 먼저 COMPLETED될 수 있음
+        //   COMPLETED 이후에도 CONTRADICTION/QUESTION 저장 허용 (중복은 temp_map으로 방지)
         if (wasCompleted) {
             if (!analysis.getFile().getCaseId().equals(caseId)) {
                 log.warn("요청 analysis_id 와 case_id의 경로가 맞지 않습니다. 1");
                 throw new CustomException(ErrorCode.ANALYSIS_NOT_IN_CASE);
             }
+
             if (request.getStage() == AnalysisStage.VIDEO_EVENT) {
                 handleVideoEvent(analysis, request.getPayload());
+            } else if (request.getStage() == AnalysisStage.CONTRADICTION) {
+                handleContradiction(caseId, analysis, request.getPayload());
+            } else if (request.getStage() == AnalysisStage.QUESTION) {
+                handleQuestion(caseId, analysis, request.getPayload());
             }
             mergeStageResultWithMeta(analysis, request.getStage(), request.getPayload());
-//            analysisRepository.save(analysis);
-            analysisRepository.saveAndFlush(analysis);
-            log.info("중복된 자료분석 callback 처리(이미 COMPLETED). caseId={}, analysisId={}, stage={}",
+
+            analysisRepository.saveAndFlush(analysis); // save -> saveAndFlush
+            log.info("COMPLETED 이후 콜백 처리. caseId={}, analysisId={}, stage={}",
                     caseId, analysisId, request.getStage());
             log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
             return;
@@ -340,7 +350,7 @@ public class AnalysisService {
             case TRANSCRIPT -> handleTranscript(analysis, request.getPayload());
             case KEY_STATEMENT -> handleKeyStatement(analysis, request.getPayload());
             case CONTRADICTION -> handleContradiction(caseId, analysis, request.getPayload());
-            case QUESTION -> handleQuestion(analysis, request.getPayload());
+            case QUESTION -> handleQuestion(caseId, analysis, request.getPayload());
             case VIDEO_EVENT -> handleVideoEvent(analysis, request.getPayload());
             default -> throw new CustomException(ErrorCode.INVALID_STAGE_TYPE);
         }
@@ -354,8 +364,7 @@ public class AnalysisService {
             // DOCUMENT/IMAGE: SUMMARY 수신 시 완료
         if ((ft == FileType.DOCUMENT || ft == FileType.IMAGE) && request.getStage() == AnalysisStage.SUMMARY) {
             analysis.setStatus(COMPLETED);
-//            analysisRepository.save(analysis);
-            analysisRepository.saveAndFlush(analysis);
+            analysisRepository.saveAndFlush(analysis); // save -> saveAndFlush
             log.info("analysisRepository.saveAndFlush(analysis) -> Completed (DOCUMENT/IMAGE SUMMARY)");
 //            criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysisId);
             publishReevaluateAfterCommit(caseId, analysisId);
@@ -366,8 +375,7 @@ public class AnalysisService {
         // VIDEO: VIDEO_EVENT 수신 시 완료
         if (ft == FileType.VIDEO && request.getStage() == AnalysisStage.VIDEO_EVENT) {
             analysis.setStatus(COMPLETED);
-//            analysisRepository.save(analysis);
-            analysisRepository.saveAndFlush(analysis);
+            analysisRepository.saveAndFlush(analysis); // save -> saveAndFlush
             log.info("analysisRepository.saveAndFlush(analysis) -> Completed (VIDEO VIEDO_EVENT)");
 //            criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysisId);
             publishReevaluateAfterCommit(caseId, analysisId);
@@ -375,21 +383,40 @@ public class AnalysisService {
             return;
         }
 
-        // AUDIO: QUESTION 수신 시 완료 IO(QUESTION 은 CONTRADICTION 이 있을 때만 온다는 가정)
+        // AUDIO: QUESTION 수신 시 완료 (빈 payload로 온 경우에도 이후 콜백 올 수 있으므로 처리)
         if (ft == FileType.AUDIO && request.getStage() == AnalysisStage.QUESTION) {
+            boolean payloadNonEmpty = request.getPayload() != null && request.getPayload().isArray() && request.getPayload().size() > 0;
+
+            // __meta.received.CONTRADICTION 여부 (이미 들어온 모순이 있을 떄만 QUESTION을 완료 트리거로 취급)
+            boolean hasContradictionFlag = false;
+            try {
+                ObjectNode root = readOrCreateRoot(analysis);
+                ObjectNode meta = getOrCreateMeta(root);
+                JsonNode received = meta.get("received");
+                hasContradictionFlag = received != null && received.isObject() && received.has("CONTRADICTION");
+            } catch (Exception ignore) {}
+
+            if(payloadNonEmpty || hasContradictionFlag) {
+                analysis.setStatus(COMPLETED);
+                analysisRepository.saveAndFlush(analysis);
+
+                log.info("analysisRepository.saveAndFlush(analysis) -> Completed (VIDEO VIEDO_EVENT)");
+                publishReevaluateAfterCommit(caseId, analysisId);
+                log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
+                return;
+            }
+            // payload가 빈 채로 QUESTION stage까지 요청이 오므로 일단 처리
             analysis.setStatus(COMPLETED);
-//            analysisRepository.save(analysis);
             analysisRepository.saveAndFlush(analysis);
-            log.info("analysisRepository.saveAndFlush(analysis) -> Completed (VIDEO VIEDO_EVENT)");
-//            criteriaEvaluationService.reevaluateAllByAnalysis(caseId, analysisId);
+            log.info("analysisRepository.saveAndFlush(analysis) -> Completed (AUDIO QUESTION)");
             publishReevaluateAfterCommit(caseId, analysisId);
             log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
             return;
         }
 
         // AUDIO 타임아웃 완료는 스케줄러가 처리한다.
-        analysisRepository.save(analysis);
-        log.info("analysisRepository.save(analysis) -> Completed");
+        analysisRepository.saveAndFlush(analysis);
+        log.info("analysisRepository.saveAndFlush(analysis) -> saved");
         log.info("==handleStageCallback End== caseId={}, analysisId={}, request={}", caseId, analysisId, request.toString());
     }
 
@@ -478,18 +505,30 @@ public class AnalysisService {
                 () -> new CustomException(ErrorCode.CASE_NOT_FOUND)
         );
 
-        List<ContradictionPayload> payloads = new ArrayList<>();
-        for (JsonNode n : payloadNode) {
-            payloads.add(objectMapper.treeToValue(n, ContradictionPayload.class));
-        }
-
         ObjectNode root = readOrCreateRoot(analysis);
         ObjectNode meta = getOrCreateMeta(root);
 
-        for (ContradictionPayload payload : payloads) {
-            UUID st1Id = resolveTempMap(meta, "KEY_STATEMENT", payload.getStatementId1());
-            UUID st2Id = resolveTempMap(meta, "KEY_STATEMENT", payload.getStatementId2());
+        for (JsonNode n : payloadNode) {
+            String tempId = n.hasNonNull("temp_id") ? n.get("temp_id").asString() : null;
+            String raw1 = n.hasNonNull("statement_id_1") ? n.get("statement_id_1").asString() : null;
+            String raw2 = n.hasNonNull("statement_id_2") ? n.get("statement_id_2").asString() : null;
+            String type = n.hasNonNull("type") ? n.get("type").asString() : null;
+            String description = n.hasNonNull("description") ? n.get("description").asString() : null;
+
+            if (tempId != null && !tempId.isBlank()) {
+                UUID already = resolveTempMap(meta, "CONTRADICTION", tempId);
+                if (already != null) {
+                    continue;
+                }
+            }
+//            UUID st1Id = resolveTempMap(meta, "KEY_STATEMENT", payload.getStatementId1());
+//            UUID st2Id = resolveTempMap(meta, "KEY_STATEMENT", payload.getStatementId2());
+            UUID st1Id = resolveKeyStatementIdAcrossCase(caseId, analysis, raw1);
+            UUID st2Id = resolveKeyStatementIdAcrossCase(caseId, analysis, raw2);
+
             if (st1Id == null || st2Id == null) {
+                log.warn("KeyStatement 참조 해석 실패. analysisId={}, raw1={}, raw2={} (case-scan 포함)",
+                        analysis.getAnalysisId(), raw1, raw2);
                 throw new CustomException(ErrorCode.KEY_STATEMENT_NOT_FOUND);
             }
 
@@ -502,36 +541,44 @@ public class AnalysisService {
                     .caseEntity(caseEntity)
                     .statement1(st1)
                     .statement2(st2)
-                    .type(payload.getType())
+                    .type(type)
                     .status(ContradictionStatus.UNRESOLVED)
-                    .description(payload.getDescription())
+                    .description(description)
                     .build();
 
             ContradictionEntity savedEntity = contradictionRepository.save(contradiction);
 
             // CONTRADICTION temp_id -> contradictionId(UUID) 매핑 저장
-            if (payload.getTempId() != null && !payload.getTempId().isBlank()) {
-                putTempMap(meta, "CONTRADICTION", payload.getTempId(), savedEntity.getContradictionId());
+            if (tempId != null && !tempId.isBlank()) {
+                putTempMap(meta, "CONTRADICTION", tempId, savedEntity.getContradictionId());
             }
         }
-        // temp_map 반영
         analysis.setResultData(root.toString());
     }
 
 
-    private void handleQuestion(AnalysisEntity analysis, JsonNode payloadNode) {
+    private void handleQuestion(UUID caseId, AnalysisEntity analysis, JsonNode payloadNode) {
         if (!payloadNode.isArray()) throw new CustomException(ErrorCode.INVALID_QUESTION_TYPE);
-
-        List<QuestionPayload> payloads = new ArrayList<>();
-        for (JsonNode n : payloadNode) {
-            payloads.add(objectMapper.treeToValue(n, QuestionPayload.class));
-        }
 
         ObjectNode root = readOrCreateRoot(analysis);
         ObjectNode meta = getOrCreateMeta(root);
 
-        for (QuestionPayload payload : payloads) {
-            UUID contradictionId = resolveTempMap(meta, "CONTRADICTION", payload.getContradictionId());
+        for (JsonNode n : payloadNode) {
+            String tempId = n.hasNonNull("temp_id") ? n.get("temp_id").asString() : null;
+            String contradictionRef = n.hasNonNull("contradiction_id") ? n.get("contradiction_id").asString() : null;
+            String target = n.hasNonNull("target") ? n.get("target").asString() : null;
+            String questionText = n.hasNonNull("question") ? n.get("question").asString() : null;
+            String rationale = n.hasNonNull("rationale") ? n.get("rationale").asString() : null;
+
+            // idempotency : 동일 temp_id가 이미 매핑되어 있는 경우 skip
+            if (tempId != null && !tempId.isBlank()) {
+                UUID already = resolveTempMap(meta, "QUESTION", tempId);
+                if (already != null) {
+                    continue;
+                }
+            }
+            UUID contradictionId = resolveContradictionIdAcrossCase(caseId, analysis, contradictionRef);
+
             if (contradictionId == null) {
                 throw new CustomException(ErrorCode.CONTRADICTION_NOT_FOUND);
             }
@@ -541,12 +588,16 @@ public class AnalysisService {
 
             QuestionEntity question = QuestionEntity.builder()
                     .contradiction(contradiction)
-                    .content(payload.getQuestion())
-                    .rationale(payload.getRationale())
+                    .content(questionText)
+                    .rationale(rationale)
                     .build();
-            questionRepository.save(question);
+
+            QuestionEntity saved = questionRepository.save(question);
+
+            if (tempId != null && !tempId.isBlank()) {
+                putTempMap(meta, "QUESTION", tempId, saved.getQuestionId());
+            }
         }
-        // temp_map 반영
         analysis.setResultData(root.toString());
     }
 
@@ -662,8 +713,16 @@ public class AnalysisService {
                 // 기본 요건(TRANSCRIPT + KEY_STATEMENT)이 없으면 아직 마감 불가
                 if (!hasTranscript || !hasKeyStatement) continue;
 
-                // CONTRADICTION이 있었는데 QUESTION이 없으면 규약 위반/미완료로 간주하여 마감하지 않음
-                if (hasContradiction && !hasQuestion) continue;
+                // CONTRADICTION이 있는데 QUESTION이 없는 경우
+                // -> 일정 시간 후, 추가 콜백 없을 시 상태 변경(COMPLETE) 및 법리기준충족평가 처리
+                if (hasContradiction && !hasQuestion) {
+                    analysis.setStatus(COMPLETED);
+                    analysisRepository.save(analysis);
+                    UUID caseId = analysis.getFile().getCaseId();
+                    publishReevaluateAfterCommit(caseId, analysis.getAnalysisId());
+                    finalized++;
+                    continue;
+                }
 
                 // CONTRADICTION이 없다면(즉, 질문 생성 단계로 갈 필요 없음) 타임아웃으로 완료 처리
                 if (!hasContradiction) {
@@ -772,5 +831,56 @@ public class AnalysisService {
         if (v == null || !v.isTextual()) return null;
         try { return UUID.fromString(v.asText()); } // UUID return
         catch (Exception e) { return null; }
+    }
+
+    // KEY_STATEMENT 참조 해석
+    // 현재 analysis의 __meta.temp_map(KEY_STATEMENT)에서 조회
+    // 같은 case의 다른 analysis들의 result_data.__meta.temp_map(KEY_STATEMENT)까지 스캔
+    private UUID resolveKeyStatementIdAcrossCase(UUID caseId, AnalysisEntity current, String ref) {
+        if (ref == null || ref.isBlank()) return null;
+
+        try {
+            ObjectNode root = readOrCreateRoot(current);
+            ObjectNode meta = getOrCreateMeta(root);
+            UUID v = resolveTempMap(meta, "KEY_STATEMENT", ref);
+            if (v != null ) return v;
+        } catch (Exception ignore) {}
+
+        try {
+            List<AnalysisEntity> analyses = analysisRepository.findAllByFile_CaseId(caseId);
+            for (AnalysisEntity a : analyses) {
+                if (a == null || a.getResultData() == null || a.getResultData().isBlank()) continue;
+                ObjectNode root = readOrCreateRoot(a);
+                ObjectNode meta = getOrCreateMeta(root);
+                UUID v = resolveTempMap(meta, "KEY_STATEMENT", ref);
+                if (v != null ) return v;
+            }
+        } catch (Exception ignore) {}
+
+        return null;
+    }
+
+    // CONTRADICTION 참조 해석
+    // QUESTION이 다른 analysis로 라우팅되는 경우를 대비해 case 전체 스캔
+    private UUID resolveContradictionIdAcrossCase(UUID caseId, AnalysisEntity current, String ref) {
+        if (ref == null || ref.isBlank()) return null;
+        try {
+            ObjectNode root = readOrCreateRoot(current);
+            ObjectNode meta = getOrCreateMeta(root);
+            UUID v = resolveTempMap(meta, "CONTRADICTION", ref);
+            if (v != null ) return v;
+        } catch (Exception ignore) {}
+        try {
+            List<AnalysisEntity> analyses = analysisRepository.findAllByFile_CaseId(caseId);
+            for (AnalysisEntity a : analyses) {
+                if (a == null || a.getResultData() == null || a.getResultData().isBlank()) continue;
+                ObjectNode root = readOrCreateRoot(a);
+                ObjectNode meta = getOrCreateMeta(root);
+                UUID v = resolveTempMap(meta, "CONTRADICTION", ref);
+                if (v != null ) return v;
+            }
+        } catch (Exception ignore) {}
+
+        return null;
     }
 }
