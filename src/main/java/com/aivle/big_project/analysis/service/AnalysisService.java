@@ -485,6 +485,7 @@ public class AnalysisService {
                     .transcript(transcript)
                     .statementText(payload.getStatementText())
                     .description(payload.getContent())
+                    .tempId(payload.getTempId())
                     .build();
 
             KeyStatementEntity savedEntity = keyStatementRepository.save(keyStatement);
@@ -525,6 +526,8 @@ public class AnalysisService {
 //            UUID st2Id = resolveTempMap(meta, "KEY_STATEMENT", payload.getStatementId2());
             UUID st1Id = resolveKeyStatementIdAcrossCase(caseId, analysis, raw1);
             UUID st2Id = resolveKeyStatementIdAcrossCase(caseId, analysis, raw2);
+
+            log.info("Resolved st1Id={}, st2Id={}", st1Id, st2Id);
 
             if (st1Id == null || st2Id == null) {
                 log.warn("KeyStatement 참조 실패 → skip 처리. analysisId={}, raw1={}, raw2={}",
@@ -851,11 +854,17 @@ public class AnalysisService {
     private UUID resolveKeyStatementIdAcrossCase(UUID caseId, AnalysisEntity current, String ref) {
         if (ref == null || ref.isBlank()) return null;
 
+        // 1️⃣ UUID 직접 들어온 경우
+        try {
+            return UUID.fromString(ref);
+        } catch (Exception ignored) {}
+
+        // 2️⃣ temp_map에서 찾기 (기존 로직 유지)
         try {
             ObjectNode root = readOrCreateRoot(current);
             ObjectNode meta = getOrCreateMeta(root);
             UUID v = resolveTempMap(meta, "KEY_STATEMENT", ref);
-            if (v != null ) return v;
+            if (v != null) return v;
         } catch (Exception ignore) {}
 
         try {
@@ -865,11 +874,18 @@ public class AnalysisService {
                 ObjectNode root = readOrCreateRoot(a);
                 ObjectNode meta = getOrCreateMeta(root);
                 UUID v = resolveTempMap(meta, "KEY_STATEMENT", ref);
-                if (v != null ) return v;
+                if (v != null) return v;
             }
         } catch (Exception ignore) {}
 
-        return null;
+        // 3️⃣ 🔥 여기 추가 (DB 직접 조회 fallback)
+        return keyStatementRepository
+                .findAllByAnalysis_File_CaseId(caseId)
+                .stream()
+                .filter(ks -> ref.equals(ks.getTempId()))
+                .map(KeyStatementEntity::getStatementId)
+                .findFirst()
+                .orElse(null);
     }
 
     // CONTRADICTION 참조 해석

@@ -36,6 +36,9 @@ public class KeyStatementEntity {
     @Column(name = "description")
     private String description;
 
+    @Column(name = "temp_id")
+    private String tempId;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
