@@ -1,5 +1,6 @@
 package com.aivle.big_project.contradiction.entity;
 
+import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.keyStatement.entity.KeyStatementEntity;
@@ -21,6 +22,10 @@ public class ContradictionEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "contradiction_id")
     private UUID contradictionId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id", nullable = false)
+    private AnalysisEntity analysis;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_id", nullable = false)

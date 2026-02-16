@@ -32,10 +32,10 @@ public interface CriteriaRepository extends JpaRepository<CriteriaEntity, UUID> 
     @Query("""
     select c
     from CriteriaEntity c
-    join c.legalIssue i
+    join fetch c.legalIssue i
     where i.caseEntity.caseId = :caseId
       and c.criteriaId = :criteriaId
-    """)
+""")
     Optional<CriteriaEntity> findByCaseIdAndCriteriaId(
             @Param("caseId") UUID caseId,
             @Param("criteriaId") UUID criteriaId

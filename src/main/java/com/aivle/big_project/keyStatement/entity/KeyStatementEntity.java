@@ -1,5 +1,6 @@
 package com.aivle.big_project.keyStatement.entity;
 
+import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.transcript.entity.TranscriptEntity;
 import jakarta.persistence.*;
@@ -20,6 +21,10 @@ public class KeyStatementEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "statement_id")
     private UUID statementId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id", nullable = false)
+    private AnalysisEntity analysis;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "transcript_id", nullable = false)

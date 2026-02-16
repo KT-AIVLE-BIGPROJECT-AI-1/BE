@@ -18,4 +18,6 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     List<QuestionEntity> findByContradictionId(
             @Param("contradictionId") UUID contradictionId
     );
+
+    List<QuestionEntity> findAllByAnalysis_AnalysisId(UUID analysisId);
 }

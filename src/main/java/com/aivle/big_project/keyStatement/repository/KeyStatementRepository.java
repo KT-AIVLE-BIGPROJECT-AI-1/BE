@@ -10,4 +10,7 @@ public interface KeyStatementRepository
         extends JpaRepository<KeyStatementEntity, UUID> {
 
     List<KeyStatementEntity> findByTranscript_TranscriptId(UUID transcriptId);
+    List<KeyStatementEntity>
+    findAllByAnalysis_AnalysisIdOrderByCreatedAtAsc(UUID analysisId);
+    List<KeyStatementEntity> findAllByAnalysis_AnalysisId(UUID analysisId);
 }

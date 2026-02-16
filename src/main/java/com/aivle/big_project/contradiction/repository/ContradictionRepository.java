@@ -42,4 +42,13 @@ public interface ContradictionRepository
     where f.caseId = :caseId
 """)
     long countByCaseIdViaStatement2(@Param("caseId") UUID caseId);
+
+    Optional<ContradictionEntity>
+    findByAnalysis_AnalysisIdAndContradictionId(
+            UUID analysisId,
+            UUID contradictionId
+    );
+
+    List<ContradictionEntity> findAllByAnalysis_AnalysisId(UUID analysisId);
+
 }
