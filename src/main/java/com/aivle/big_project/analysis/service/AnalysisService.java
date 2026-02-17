@@ -149,6 +149,17 @@ public class AnalysisService {
     }
 
     private AnalysisDetailResponse buildVideo(AnalysisEntity analysis) {
+        String presignedUrl = null;
+
+        try {
+            if (analysis.getFile() != null && analysis.getFile().getFilePath() != null) {
+                presignedUrl = objectStorageService.presignGetUrl(analysis.getFile().getFilePath());
+            }
+        } catch (Exception e) {
+            log.warn("Video Presigned URL 생성 실패. analysisId={}, key={}, reason={}",
+                    (analysis.getFile() == null ? null : analysis.getFile().getFilePath()),
+                    e.getMessage(), e);
+        }
         List<VideoEventResponse> events =
                 videoEventRepository.findByAnalysisId(analysis.getAnalysisId())
                         .stream()
@@ -166,6 +177,7 @@ public class AnalysisService {
                 analysis.getAnalysisId(),
                 analysis.getFile().getFileType(),
                 new VideoAnalysisData(
+                        presignedUrl,
                         analysis.getResultData(),
                         events
                 )

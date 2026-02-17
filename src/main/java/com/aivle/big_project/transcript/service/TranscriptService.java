@@ -17,7 +17,7 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class TranscriptService {
 
     private final AnalysisRepository analysisRepository;
