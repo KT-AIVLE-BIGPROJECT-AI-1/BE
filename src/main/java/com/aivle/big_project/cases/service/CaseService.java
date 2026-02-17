@@ -18,7 +18,10 @@ import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.cases.entity.CaseType;
 import com.aivle.big_project.cases.repository.CaseRepository;
 import com.aivle.big_project.criteria.entity.CriteriaEntity;
+import com.aivle.big_project.criteria.entity.CriteriaEvaluationEntity;
+import com.aivle.big_project.criteria.entity.CriteriaEvaluationStatus;
 import com.aivle.big_project.criteria.entity.LegalIssueEntity;
+import com.aivle.big_project.criteria.repository.CriteriaEvaluationRepository;
 import com.aivle.big_project.criteria.repository.CriteriaRepository;
 import com.aivle.big_project.criteria.repository.LegalIssueRepository;
 import com.aivle.big_project.user.entity.User;
@@ -51,6 +54,7 @@ public class CaseService {
     private final ObjectMapper objectMapper;
     private final LegalIssueRepository legalIssueRepository;
     private final CriteriaRepository criteriaRepository;
+    private final CriteriaEvaluationRepository evaluationRepository;
     private final ActivityLogService activityLogService;
 
     // 홈화면 대시보드
@@ -390,7 +394,7 @@ public class CaseService {
     }
 
 
-    // AI LegalCriteriaResponse(legal_issues -> legal_criteria) DB 저장
+    // AI LegalCriteriaResponse(legal_issues -> legal_criteria -> criteria_evaluation) DB 저장
     private void saveLegalCriteriaFromDto(CaseEntity savedCase, LegalCriteriaResponse resp) {
         List<LegalIssue> issues = resp.getLegalIssues();
         if (issues == null || issues.isEmpty()) return;
@@ -420,7 +424,23 @@ public class CaseService {
 
                 batch.add(criteria);
             }
-            criteriaRepository.saveAll(batch);
+            List<CriteriaEntity> savedCriteria = criteriaRepository.saveAll(batch);// 판단기준 (criteria) 저장
+
+            for (int i = 0; i < Math.min(criteriaDtoList.size(), savedCriteria.size()); i++) { // 기준 충족평가(evaluation) 저장
+                LegalCriteria dto = criteriaDtoList.get(i);
+
+                if (dto.getCriteriaEvaluation() == null) continue;
+
+                CriteriaEvaluationEntity eval = CriteriaEvaluationEntity.builder()
+                        .criteria(savedCriteria.get(i)) // FK 연결
+                        .status(parseEvaluationStatus(dto.getCriteriaEvaluation().getStatus()))
+                        .reason(dto.getCriteriaEvaluation().getReason())
+                        .evidenceGap(dto.getCriteriaEvaluation().getEvidenceGap())
+                        .createdAt(now)
+                        .build();
+
+                evaluationRepository.save(eval);
+            }
         }
     }
 
@@ -477,5 +497,17 @@ public class CaseService {
             throw new RuntimeException("status 값이 올바르지 않습니다.");
         }
     }
+    private CriteriaEvaluationStatus parseEvaluationStatus(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return CriteriaEvaluationStatus.INSUFFICIENT;
+        }
+        try {
+            return CriteriaEvaluationStatus.valueOf(raw.trim().toUpperCase());
+        } catch (Exception e) {
+            log.warn("criteria evaluation status 값이 올바르지 않습니다. raw={}", raw);
+            return CriteriaEvaluationStatus.INSUFFICIENT;
+        }
+    }
+
 
 }

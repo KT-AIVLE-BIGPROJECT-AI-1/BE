@@ -24,8 +24,8 @@ public class InterimReportCreateResponse {
 class InterimReportContent {
     private String caseOverview;
     private String investigationProgress;
-    private String futurePlan;
     private CurrentStatus currentStatus;
+    private String futurePlan;
 }
 
 @Getter
