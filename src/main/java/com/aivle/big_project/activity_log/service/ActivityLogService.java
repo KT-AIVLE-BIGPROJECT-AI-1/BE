@@ -143,10 +143,15 @@ public class ActivityLogService {
                 String status = (String) payload.get("status");
                 String reason = (String) payload.get("reason");
                 String gap = (String) payload.get("evidenceGap");
+                String actor = (String) payload.get("actor");
 
                 StringBuilder sb = new StringBuilder();
 
-                sb.append("기준 평가 변경\n");
+                if ("AI".equals(actor)) {
+                    sb.append("[AI 자동 평가 변경]\n");
+                } else {
+                    sb.append("기준 평가 변경\n");
+                }
 
                 if (before != null && after != null) {
                     sb.append(String.format("이전 상태: %s\n", before));
