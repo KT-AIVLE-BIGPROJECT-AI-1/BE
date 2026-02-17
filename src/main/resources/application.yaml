@@ -1,0 +1,45 @@
+spring:
+  storage:
+    s3:
+      bucket: ${AWS_S3_BUCKET_NAME:}
+      region: ${AWS_S3_REGION:}
+      access-key: ${AWS_ACCESS_KEY_ID:}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:}
+      presign:
+        put-expire-minutes: 10
+        get-expire-minutes: 10
+  datasource:
+    url: ${DB_URL:}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+    open-in-view: false
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 10000MB
+jwt:
+  secret: ${JWT_SECRET:}
+  access-token-exp-seconds: ${JWT_ACCESS_EXPIRATION_MS:90000}
+  refresh-token-exp-seconds: ${JWT_REFRESH_EXPIRATION_MS:1209600}  # 14 days
+
+logging:
+  level:
+    org.hibernate.sql: debug
+    org.hibernate.jdbc.bind: trace
+
+ai:
+  base-url: ${AI_BASE_URL:http://localhost:8000}
+  connect-timeout-ms: 2000
+  response-timeout-ms: 60000
