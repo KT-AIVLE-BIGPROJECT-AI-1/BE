@@ -75,7 +75,7 @@ public class ChatService {
                 ChatLogEntity.builder()
                         .caseEntity(caseEntity)
                         .role("AI")
-                        .message(null)
+                        .message("")
                         .usedContext(null)
                         .createdAt(LocalDateTime.now())
                         .build()
