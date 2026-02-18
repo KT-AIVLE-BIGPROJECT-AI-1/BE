@@ -35,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -52,6 +53,27 @@ public class FinalAnalysisService {
     private final ChatLogRepository chatLogRepository;
     private final AiClient aiClient;
     private final ObjectMapper objectMapper;
+
+    private JsonNode parseUsedContext(String raw) {
+        try {
+            if (raw != null && !raw.isBlank()) {
+                JsonNode node = objectMapper.readTree(raw);
+                if (node.isObject()) {
+                    return node;
+                }
+            }
+        } catch (Exception ignored) {}
+
+        ObjectNode node = objectMapper.createObjectNode();
+        node.putArray("analysis_ids");   // []
+        node.put("type", "");
+
+        return node;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
+    }
 
     @Transactional
     public FinalAnalysisResponse create(UUID caseId, UUID userId) {
@@ -146,18 +168,18 @@ public class FinalAnalysisService {
             else evalDefaulted++;
 
             CriteriaEvaluation aiEval;
-            if(latestEval != null) {
+            if (latestEval != null) {
                 aiEval = CriteriaEvaluation.builder()
-                        .status(latestEval.getStatus() == null ? null : latestEval.getStatus().name())
-                        .reason(latestEval.getReason())
-                        .evidenceGap(latestEval.getEvidenceGap())
+                        .status(latestEval.getStatus() == null ? "INSUFFICIENT" : latestEval.getStatus().name())
+                        .reason(safe(latestEval.getReason()))
+                        .evidenceGap(safe(latestEval.getEvidenceGap()))
                         .build();
             } else {
                 // CriteriaEvaluation이 내부 오류로 존재하지 않는 경우 : AI 서버 500 에러 방지를 위해 기본값 반환
                 aiEval = CriteriaEvaluation.builder()
                         .status("INSUFFICIENT")
-                        .reason(null)
-                        .evidenceGap(null)
+                        .reason("")
+                        .evidenceGap("")
                         .build();
             }
             LegalCriteria aiCriteria = LegalCriteria.builder()
@@ -206,7 +228,8 @@ public class FinalAnalysisService {
     }
 
     private List<ChatLog> loadChatLogList(UUID caseId) {
-        List<ChatLogEntity> chatLogEntityList = chatLogRepository.findAllByCaseEntity_CaseIdOrderByCreatedAtAsc(caseId);
+        List<ChatLogEntity> chatLogEntityList =
+                chatLogRepository.findAllByCaseEntity_CaseIdOrderByCreatedAtAsc(caseId);
 
         if (chatLogEntityList == null || chatLogEntityList.isEmpty()) {
             return List.of();
@@ -215,10 +238,13 @@ public class FinalAnalysisService {
         List<ChatLog> result = new ArrayList<>(chatLogEntityList.size());
 
         for (ChatLogEntity chatLog : chatLogEntityList) {
+
+            JsonNode usedContextNode = parseUsedContext(chatLog.getUsedContext());
+
             ChatLog dto = ChatLog.builder()
-                    .role(chatLog.getRole())
-                    .message(chatLog.getMessage())
-                    .usedContext(chatLog.getUsedContext())
+                    .role(chatLog.getRole() == null ? "" : chatLog.getRole())
+                    .message(chatLog.getMessage() == null ? "" : chatLog.getMessage())
+                    .usedContext(usedContextNode)
                     .createdAt(chatLog.getCreatedAt())
                     .build();
             result.add(dto);

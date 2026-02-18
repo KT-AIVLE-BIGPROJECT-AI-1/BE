@@ -206,6 +206,10 @@ public class CriteriaEvaluationService {
                 log.info("법리기준 충족평가 (Re) 생략됨 (already SATISFIED): criteriaId={}", c.getCriteriaId());
                 continue;
             }
+
+            CriteriaEvaluationStatus beforeStatus =
+                    latestEvaluation != null ? latestEvaluation.getStatus() : null;
+
             LegalIssueEntity issueEntity = c.getLegalIssue();
 
             LegalIssue aiIssue = LegalIssue.builder()
@@ -231,19 +235,46 @@ public class CriteriaEvaluationService {
                 throw new CustomException(ErrorCode.EVALUATION_STATUS_NOT_FOUNT);
             }
 
-            log.info("Criteria Re-Evaluation: Status={}", resp.getStatus());
-
-            CriteriaEvaluationStatus status;
+            CriteriaEvaluationStatus newStatus;
             try {
-                String raw = resp.getStatus().trim().toUpperCase();
-                status = CriteriaEvaluationStatus.valueOf(raw);
+                newStatus = CriteriaEvaluationStatus.valueOf(
+                        resp.getStatus().trim().toUpperCase()
+                );
             } catch (Exception e) {
-                throw new RuntimeException("알 수 없는 status");
+                throw new RuntimeException("알 수 없는 status: " + resp.getStatus());
+            }
+
+            // 상태가 실제로 변경된 경우에만 로그 남김
+            if (beforeStatus == null || !beforeStatus.equals(newStatus)) {
+
+                activityLogService.log(
+                        caseId,
+                        ActivityLogField.CRITERIA_EVALUATION,
+                        ActivityType.UPDATE,
+                        p -> {
+                            p.put("criteriaId", c.getCriteriaId());
+                            p.put("actor", "AI");
+
+                            if (beforeStatus != null) {
+                                p.put("before", beforeStatus.name());
+                            }
+
+                            p.put("after", newStatus.name());
+
+                            if (resp.getReason() != null) {
+                                p.put("reason", resp.getReason());
+                            }
+
+                            if (resp.getEvidenceGap() != null) {
+                                p.put("evidenceGap", resp.getEvidenceGap());
+                            }
+                        }
+                );
             }
 
             CriteriaEvaluationEntity evaluation = CriteriaEvaluationEntity.builder()
                     .criteria(c)
-                    .status(status)
+                    .status(newStatus)
                     .reason(resp.getReason() == null ? "" : resp.getReason())
                     .evidenceGap(resp.getEvidenceGap())
                     .createdAt(now)

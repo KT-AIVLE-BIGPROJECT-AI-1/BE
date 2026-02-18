@@ -1,6 +1,7 @@
 package com.aivle.big_project.question.entity;
 
 import com.aivle.big_project.contradiction.entity.ContradictionEntity;
+import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.*;
 import jakarta.persistence.Table;
@@ -18,6 +19,10 @@ public class QuestionEntity {
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "question_id", columnDefinition = "UUID")
     private UUID questionId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id", nullable = false)
+    private AnalysisEntity analysis;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contradiction_id", nullable = false)

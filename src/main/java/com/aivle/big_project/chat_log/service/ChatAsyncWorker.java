@@ -35,6 +35,7 @@ public class ChatAsyncWorker {
         try {
             response = aiClient.respondChat(request);
         } catch (Exception e) {
+            e.printStackTrace();
             // “실패 메시지 업데이트” 처리
             updateFailure(aiChatId);
             return;

@@ -21,25 +21,5 @@ public interface ContradictionRepository
 
     Optional<ContradictionEntity> findByContradictionIdAndCaseEntity_CaseId(UUID contradictionId, UUID caseId);
 
-    @Query("""
-    select count(c)
-    from ContradictionEntity c
-    join c.statement1 ks
-    join ks.transcript t
-    join t.analysis a
-    join a.file f
-    where f.caseId = :caseId
-""")
-    long countByCaseIdViaStatement1(@Param("caseId") UUID caseId);
-
-    @Query("""
-    select count(c)
-    from ContradictionEntity c
-    join c.statement2 ks
-    join ks.transcript t
-    join t.analysis a
-    join a.file f
-    where f.caseId = :caseId
-""")
-    long countByCaseIdViaStatement2(@Param("caseId") UUID caseId);
+    boolean existsByCaseEntity_CaseId(UUID caseId);
 }

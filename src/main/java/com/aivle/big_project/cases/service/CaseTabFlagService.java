@@ -31,8 +31,7 @@ public class CaseTabFlagService {
     public TabFlags getFlags(UUID caseId) {
 
         boolean hasContradictions =
-                contradictionRepository.countByCaseIdViaStatement1(caseId) > 0
-                        || contradictionRepository.countByCaseIdViaStatement2(caseId) > 0;
+                contradictionRepository.existsByCaseEntity_CaseId(caseId);
 
         boolean hasVideoFiles =
                 analysisRepository.existsCompletedAnalysisByCaseIdAndType(

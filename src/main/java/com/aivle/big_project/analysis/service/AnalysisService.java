@@ -125,12 +125,11 @@ public class AnalysisService {
         }
 
         List<KeyStatementResponse> statements =
-                transcripts.stream()
-                        .flatMap(t ->
-                                keyStatementRepository
-                                        .findByTranscript_TranscriptId(t.getTranscriptId())
-                                        .stream()
+                keyStatementRepository
+                        .findAllByAnalysis_AnalysisIdOrderByCreatedAtAsc(
+                                analysis.getAnalysisId()
                         )
+                        .stream()
                         .map(s -> new KeyStatementResponse(
                                 s.getStatementId(),
                                 s.getStatementText(),
@@ -494,9 +493,11 @@ public class AnalysisService {
                     .orElseThrow(() -> new CustomException(ErrorCode.TRANSCRIPT_NOT_FOUND));
 
             KeyStatementEntity keyStatement = KeyStatementEntity.builder()
+                    .analysis(analysis)
                     .transcript(transcript)
                     .statementText(payload.getStatementText())
                     .description(payload.getContent())
+                    .tempId(payload.getTempId())
                     .build();
 
             KeyStatementEntity savedEntity = keyStatementRepository.save(keyStatement);
@@ -538,18 +539,24 @@ public class AnalysisService {
             UUID st1Id = resolveKeyStatementIdAcrossCase(caseId, analysis, raw1);
             UUID st2Id = resolveKeyStatementIdAcrossCase(caseId, analysis, raw2);
 
+            log.info("Resolved st1Id={}, st2Id={}", st1Id, st2Id);
+
             if (st1Id == null || st2Id == null) {
-                log.warn("KeyStatement 참조 해석 실패. analysisId={}, raw1={}, raw2={} (case-scan 포함)",
+                log.warn("KeyStatement 참조 실패 → skip 처리. analysisId={}, raw1={}, raw2={}",
                         analysis.getAnalysisId(), raw1, raw2);
-                throw new CustomException(ErrorCode.KEY_STATEMENT_NOT_FOUND);
+                continue;
             }
 
-            KeyStatementEntity st1 = keyStatementRepository.findById(st1Id)
-                    .orElseThrow(() -> new CustomException(ErrorCode.KEY_STATEMENT_NOT_FOUND));
-            KeyStatementEntity st2 = keyStatementRepository.findById(st2Id)
-                    .orElseThrow(() -> new CustomException(ErrorCode.KEY_STATEMENT_NOT_FOUND));
+            KeyStatementEntity st1 = keyStatementRepository.findById(st1Id).orElse(null);
+            KeyStatementEntity st2 = keyStatementRepository.findById(st2Id).orElse(null);
+
+            if (st1 == null || st2 == null) {
+                log.warn("KeyStatement DB 조회 실패 → skip");
+                continue;
+            }
 
             ContradictionEntity contradiction = ContradictionEntity.builder()
+                    .analysis(analysis)
                     .caseEntity(caseEntity)
                     .statement1(st1)
                     .statement2(st2)
@@ -589,16 +596,24 @@ public class AnalysisService {
                     continue;
                 }
             }
-            UUID contradictionId = resolveContradictionIdAcrossCase(caseId, analysis, contradictionRef);
+            UUID contradictionId =
+                    resolveContradictionIdAcrossCase(caseId, analysis, contradictionRef);
 
             if (contradictionId == null) {
-                throw new CustomException(ErrorCode.CONTRADICTION_NOT_FOUND);
+                log.warn("Contradiction 참조 실패 → skip. ref={}", contradictionRef);
+                continue;
             }
 
-            ContradictionEntity contradiction = contradictionRepository.findById(contradictionId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.CONTRADICTION_NOT_FOUND));
+            ContradictionEntity contradiction =
+                    contradictionRepository.findById(contradictionId).orElse(null);
+
+            if (contradiction == null) {
+                log.warn("Contradiction DB 조회 실패 → skip");
+                continue;
+            }
 
             QuestionEntity question = QuestionEntity.builder()
+                    .analysis(analysis)
                     .contradiction(contradiction)
                     .content(questionText)
                     .rationale(rationale)
@@ -851,11 +866,17 @@ public class AnalysisService {
     private UUID resolveKeyStatementIdAcrossCase(UUID caseId, AnalysisEntity current, String ref) {
         if (ref == null || ref.isBlank()) return null;
 
+        // 1️⃣ UUID 직접 들어온 경우
+        try {
+            return UUID.fromString(ref);
+        } catch (Exception ignored) {}
+
+        // 2️⃣ temp_map에서 찾기 (기존 로직 유지)
         try {
             ObjectNode root = readOrCreateRoot(current);
             ObjectNode meta = getOrCreateMeta(root);
             UUID v = resolveTempMap(meta, "KEY_STATEMENT", ref);
-            if (v != null ) return v;
+            if (v != null) return v;
         } catch (Exception ignore) {}
 
         try {
@@ -865,11 +886,18 @@ public class AnalysisService {
                 ObjectNode root = readOrCreateRoot(a);
                 ObjectNode meta = getOrCreateMeta(root);
                 UUID v = resolveTempMap(meta, "KEY_STATEMENT", ref);
-                if (v != null ) return v;
+                if (v != null) return v;
             }
         } catch (Exception ignore) {}
 
-        return null;
+        // 3️⃣ 🔥 여기 추가 (DB 직접 조회 fallback)
+        return keyStatementRepository
+                .findAllByAnalysis_File_CaseId(caseId)
+                .stream()
+                .filter(ks -> ref.equals(ks.getTempId()))
+                .map(KeyStatementEntity::getStatementId)
+                .findFirst()
+                .orElse(null);
     }
 
     // CONTRADICTION 참조 해석
