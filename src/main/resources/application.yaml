@@ -41,5 +41,5 @@ logging:
 
 ai:
   base-url: ${AI_BASE_URL:http://localhost:8000}
-  connect-timeout-ms: 2000
-  response-timeout-ms: 60000
+  connect-timeout-ms: 6000
+  response-timeout-ms: 180000

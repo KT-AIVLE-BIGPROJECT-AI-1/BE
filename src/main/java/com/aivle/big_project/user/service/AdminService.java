@@ -51,7 +51,7 @@ public class AdminService {
 
         Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.ASC, "name"));
 
-        Specification<User> spec = Specification.where(juridictionEquals(jurisdiction));
+        Specification<User> spec = Specification.where(jurisdictionEquals(jurisdiction));
         if (department != null && !department.isBlank()) spec = spec.and(departmentEquals(department));
         if (rank != null && !rank.isBlank()) spec = spec.and(rankEquals(rank));
         if (keyword != null && !keyword.isBlank()) spec = spec.and(keywordLike(keyword));
@@ -91,7 +91,7 @@ public class AdminService {
         return objectStorageService.presignGetUrl(key);
     }
 
-    private Specification<User> juridictionEquals(String jurisdictionStation) {
+    private Specification<User> jurisdictionEquals(String jurisdictionStation) {
         return (root, query, cb) ->
                 cb.equal(root.get("jurisdictionStation"), jurisdictionStation);
     }
