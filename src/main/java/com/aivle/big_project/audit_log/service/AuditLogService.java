@@ -10,8 +10,6 @@ import com.aivle.big_project.audit_log.repository.AuditLogRepository;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,14 +46,46 @@ public class AuditLogService {
 
     @Transactional(readOnly = true)
     public AuditLogSearchResponse search(
+            UUID adminId,
             UUID userId,
             String action,
             String targetType,
             LocalDateTime from,
             LocalDateTime to
     ) {
+
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("관리자를 찾을 수 없습니다."));
+
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("감사 대상 사용자를 찾을 수 없습니다."));
+
+        if (!admin.getJurisdictionStation()
+                .equals(targetUser.getJurisdictionStation())) {
+            throw new RuntimeException("다른 관할서 사용자의 로그는 조회할 수 없습니다.");
+        }
+
+        AuditAction actionEnum =
+                (action == null || action.isBlank())
+                        ? null
+                        : AuditAction.valueOf(action);
+
+        AuditTargetType targetTypeEnum =
+                (targetType == null || targetType.isBlank())
+                        ? null
+                        : AuditTargetType.valueOf(targetType);
+
+        List<AuditLog> logs = auditLogRepository.searchLogs(
+                userId,
+                actionEnum,
+                targetTypeEnum,
+                from,
+                to
+        );
+
+        List<AuditLogResponse> items = logs.stream()
+                .map(this::toResponse)
+                .toList();
 
         AuditTargetUserResponse userDto = AuditTargetUserResponse.builder()
                 .userId(targetUser.getUserId())
@@ -68,42 +98,6 @@ public class AuditLogService {
                 .department(targetUser.getDepartment())
                 .rankName(targetUser.getRankName())
                 .build();
-
-        Specification<AuditLog> spec = Specification.where(
-                ((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("userId"), userId))
-        );
-
-        if (action != null && !action.isBlank()) {
-            AuditAction parsed = AuditAction.valueOf(action);
-            spec = spec.and(
-                    ((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("action"), parsed))
-            );
-        }
-
-        if (targetType != null && !targetType.isBlank()) {
-            AuditTargetType parsed = AuditTargetType.valueOf(targetType);
-            spec = spec.and(
-                    ((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("targetType"), parsed))
-            );
-        }
-
-        if (from != null) {
-            spec = spec.and(
-                    ((root, query, criteriaBuilder) -> criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from))
-            );
-        }
-
-        if (to != null) {
-            spec = spec.and(
-                    ((root, query, criteriaBuilder) -> criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), to))
-            );
-        }
-
-        List<AuditLog> logs = auditLogRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
-
-        List<AuditLogResponse> items = logs.stream()
-                .map(this::toResponse)
-                .toList();
 
         return AuditLogSearchResponse.builder()
                 .user(userDto)
@@ -118,6 +112,7 @@ public class AuditLogService {
                 .targetType(log.getTargetType().name())
                 .targetId(log.getTargetId())
                 .metadata(log.getMetadata())
+                .userId(log.getUserId())
                 .createdAt(log.getCreatedAt())
                 .build();
     }

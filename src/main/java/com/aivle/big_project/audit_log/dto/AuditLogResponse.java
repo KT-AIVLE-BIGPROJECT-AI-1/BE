@@ -20,5 +20,8 @@ public class AuditLogResponse {
 
     private Map<String, Object> metadata; // jsonb
 
+    // 관할서 추출을 위해 userId 추가
+    private UUID userId;
+
     private LocalDateTime createdAt;
 }
