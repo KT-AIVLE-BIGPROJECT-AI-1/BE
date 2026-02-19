@@ -54,15 +54,15 @@ public class ReportService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         assertAssignee(aCase, userId);
 
-        if (logIds == null || logIds.isEmpty()) throw new RuntimeException("log_ids는 필수입니다.");
+        if (logIds == null || logIds.isEmpty()) throw new CustomException(ErrorCode.INVALID_ACTIVITY_LOG_REQUIRED);
 
         List<ActivityLog> logs = activityLogRepository.findAllById(logIds);
-        if (logs.size() != logIds.size()) throw new RuntimeException("존재하지 않는 log_id가 포함되어 있습니다.");
+        if (logs.size() != logIds.size()) throw new CustomException(ErrorCode.ACTIVITY_LOG_NOT_FOUND);
 
         // 같은 사건의 로그만 허용
         for (ActivityLog log : logs) {
             if (!log.getCaseEntity().getCaseId().equals(caseId)) {
-                throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
+                throw new CustomException(ErrorCode.INVALID_ACTIVITY_LOG_SELECTED);
             }
         }
 
@@ -133,7 +133,7 @@ public class ReportService {
         assertAssignee(aCase, userId);
 
         if (req.getSelectedLogIds() == null || req.getSelectedLogIds().isEmpty()) {
-            throw new RuntimeException("selected_log_ids는 필수입니다.");
+            throw new CustomException(ErrorCode.INVALID_ACTIVITY_LOG_SELECTED);
         }
 
         Report report = upsertFinalizingReport(req.getReportId(), ReportType.INTERIM, aCase);
@@ -161,7 +161,7 @@ public class ReportService {
     public ReportGenerateResponse generateFinalReport(UUID caseId, UUID userId) {
 
         CaseEntity aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new RuntimeException("사건이 존재하지 않습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CASE_NOT_FOUND));
         assertAssignee(aCase, userId);
 
         FinalAnalysis finalAnalysis =
@@ -169,7 +169,7 @@ public class ReportService {
                         .stream()
                         .findFirst()
                         .orElseThrow(() ->
-                                new RuntimeException("최종 통합분석이 존재하지 않습니다."));
+                                new CustomException(ErrorCode.CASE_NOT_FOUND));
         // ============================================
         // 🔥 AI 서버 호출 예정
         // 사건 정보 + 최신 FinalAnalysis 전체 데이터 전달
@@ -203,7 +203,7 @@ public class ReportService {
         try {
             contentJson = objectMapper.writeValueAsString(response.getContent());
         } catch (Exception e) {
-            throw new RuntimeException("AI 결과보고 content 직렬화 실패", e);
+            throw new CustomException(ErrorCode.INVALID_AI_CONTENT_SERIALIZATION);
         }
 
         return ReportGenerateResponse.builder()
@@ -264,7 +264,7 @@ public class ReportService {
             case TRANSFER -> "TRANSFER";
             case NON_TRANSFER -> "NON_TRANSFER";
             case SUSPENSION -> "SUSPENSION";
-            default -> throw new RuntimeException("decision_type 값이 올바르지 않습니다: " + decisionTypeRaw);
+            default -> throw new CustomException(ErrorCode.INVALID_DECISION_TYPE);
         };
 
         DecisionReportCreateRequest request = DecisionReportCreateRequest.builder()
@@ -327,7 +327,7 @@ public class ReportService {
 
         UUID finalId = req.getFinalId();
 
-        // 🔥 INTERIM이 아닌 경우 → 최신 FinalAnalysis 자동 연결
+        // INTERIM이 아닌 경우 → 최신 FinalAnalysis 자동 연결
         if (type != ReportType.INTERIM) {
             FinalAnalysis latest = latestFinalAnalysis(caseId);
             finalId = latest.getFinalId();
@@ -391,7 +391,7 @@ public class ReportService {
         assertSameCase(caseId, report);
 
         if (report.getStatus() != ReportStatus.DRAFT) {
-            throw new RuntimeException("이미 작성 완료된 보고서는 수정할 수 없습니다.");
+            throw new CustomException(ErrorCode.INVALID_REPORT_EDIT);
         }
 
         ReportType type = report.getType();
@@ -403,13 +403,6 @@ public class ReportService {
         }
 
         if (type == ReportType.INTERIM) syncReportLogs(caseId, report, req.getSelectedLogIds());
-        else {
-            // 사건에서 가장 최신의 통합분석 가져오기
-//            UUID latestFinalId = finalAnalysisRepository.findTopByACase_CaseIdOrderByCreatedAtDesc(caseId)
-//                                                        .map(fa -> fa.getFinalId())
-//                                                        .orElseThrow(() -> new RuntimeException("최종 통합분석이 존재하지 않아 결과보고/결정서를 수정할 수 없습니다."));
-//            report.setFinalId(latestFinalId);
-        }
         return toDetail(report);
     }
 
@@ -450,7 +443,7 @@ public class ReportService {
         assertSameCase(caseId, report);
 
         if (report.getStatus() != ReportStatus.DRAFT) {
-            throw new RuntimeException("임시저장(DRAFT) 문서가 아닙니다.");
+            throw new CustomException(ErrorCode.NOT_DRAFT_REPORT);
         }
 
         return toDetail(report);
@@ -469,7 +462,7 @@ public class ReportService {
         // 임시저장 보고서(status == DRAFT)는 다운로드 불가능
         if (report.getStatus() == ReportStatus.DRAFT
             || report.getFilePath() == null || report.getFilePath().isBlank()) {
-            throw new IllegalStateException("임시저장 보고서는 다운로드할 수 없습니다.");
+            throw new CustomException(ErrorCode.INVALID_DRAFT_DOWNLOAD);
         }
 
         int expiresIn = 600;
@@ -502,16 +495,16 @@ public class ReportService {
         }
 
         Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new RuntimeException("report_id에 해당하는 보고서가 존재하지 않습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.REPORT_NOT_FOUND));
 
         if (!report.getACase().getCaseId().equals(aCase.getCaseId())) {
-            throw new RuntimeException("case_id와 report_id가 일치하지 않습니다.");
+            throw new CustomException(ErrorCode.INVALID_REPORT_ID);
         }
         if (report.getType() != expextedType) {
-            throw new RuntimeException("보고서 type이 일치하지 않습니다.");
+            throw new CustomException(ErrorCode.UNEXPECTED_REPORT_TYPE);
         }
         if (report.getStatus() != ReportStatus.DRAFT) {
-            throw new RuntimeException("이미 작성 완료된 보고서입니다.");
+            throw new CustomException(ErrorCode.REPORT_ALREADY_EXISTS);
         }
         return report;
     }
@@ -551,7 +544,7 @@ public class ReportService {
                 finalAnalysisRepository.findLatestByCaseId(caseId);
 
         if (list.isEmpty()) {
-            throw new RuntimeException("최종 통합분석이 존재하지 않습니다.");
+            throw new CustomException(ErrorCode.FINAL_ANALYSIS_NOT_FOUND);
         }
 
         return list.getFirst(); // 최신순이므로 첫번째가 최신
@@ -560,11 +553,11 @@ public class ReportService {
     private void assertField(ReportType type, List<UUID> selectedLogIds, UUID finalId) {
         if (type == ReportType.INTERIM) { // 수사보고 -> 사건활동로그 id 리스트
             if (selectedLogIds == null || selectedLogIds.isEmpty()) {
-                throw new RuntimeException("수사보고 문서는 selected_log_ids가 필요합니다.");
+                throw new CustomException(ErrorCode.INVALID_ACTIVITY_LOG_REQUIRED);
             }
         } else { // 결과보고+결정서 -> 최종분석결과 id
             if (finalId == null) {
-                throw new RuntimeException("수사결과보고/수사결정서는 final_id가 필요합니다.");
+                throw new CustomException(ErrorCode.INVALID_FINAL_ANALYSIS_REQUIRED);
             }
         }
     }
@@ -578,7 +571,7 @@ public class ReportService {
         List<ActivityLog> existing =
                 activityLogRepository.findByReport_ReportId(report.getReportId());
 
-        // 🔥 선택 비어있으면 전부 detach
+        // 선택 비어있으면 전부 detach
         if (incomingIds.isEmpty()) {
             for (ActivityLog log : existing) {
                 log.detachFromReport();
@@ -591,25 +584,25 @@ public class ReportService {
                 activityLogRepository.findAllById(incomingIds);
 
         if (incoming.size() != incomingIds.size()) {
-            throw new RuntimeException("존재하지 않는 activity_log_id가 포함되어 있습니다.");
+            throw new CustomException(ErrorCode.ACTIVITY_LOG_NOT_FOUND);
         }
 
         for (ActivityLog log : incoming) {
             if (!log.getCaseEntity().getCaseId().equals(caseId)) {
-                throw new RuntimeException("다른 사건의 activity_log는 선택할 수 없습니다.");
+                throw new CustomException(ErrorCode.INVALID_ACTIVITY_LOG_SELECTED);
             }
         }
 
         HashSet<UUID> incomingSet = new HashSet<>(incomingIds);
 
-        // 🔥 빠진 것들 detach
+        // 빠진 것들 detach
         for (ActivityLog log : existing) {
             if (!incomingSet.contains(log.getLogId())) {
                 log.detachFromReport();
             }
         }
 
-        // 🔥 새로 포함된 것 attach
+        // 새로 포함된 것 attach
         for (ActivityLog log : incoming) {
             log.attachToReport(report);
         }
@@ -620,27 +613,27 @@ public class ReportService {
 
     private void assertAssignee(CaseEntity aCase, UUID userId) {
         if (aCase.getUser() == null || aCase.getUser().getUserId() == null) {
-            throw new RuntimeException("사건 담당자 정보가 없습니다.");
+            throw new CustomException(ErrorCode.ASSIGNEE_NOT_FOUND);
         }
         if (!aCase.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("사건 담당자만 접근할 수 있습니다.");
+            throw new CustomException(ErrorCode.INVALID_ASSIGNEE_ACCESS);
         }
     }
 
     private void assertSameCase(UUID caseId, Report report) {
         if (!report.getACase().getCaseId().equals(caseId)) {
-            throw new RuntimeException("case_id와 report_id가 일치하지 않습니다.");
+            throw new CustomException(ErrorCode.INVALID_REPORT_ID);
         }
     }
 
     private ReportType parseType(String raw) {
         if (raw == null || raw.isBlank()) {
-            throw new RuntimeException("type은 필수입니다.");
+            throw new CustomException(ErrorCode.INVALID_REPORT_TYPE_REQUIRED);
         }
         try {
             return ReportType.valueOf(raw.trim().toUpperCase());
         } catch (Exception e) {
-            throw new RuntimeException("type 값이 올바르지 않습니다: " + raw);
+            throw new CustomException(ErrorCode.INVALID_REPORT_TYPE);
         }
     }
 
@@ -652,18 +645,18 @@ public class ReportService {
             case "INTERIM" -> List.of(ReportType.INTERIM);
             case "FINAL" -> List.of(ReportType.FINAL);
             case "DECISION" -> List.of(ReportType.TRANSFER, ReportType.NON_TRANSFER, ReportType.SUSPENSION);
-            default -> throw new RuntimeException("type 값이 올바르지 않습니다: " + raw + " (INTERIM|FINAL|DECISION)");
+            default -> throw new CustomException(ErrorCode.INVALID_REPORT_TYPE);
         };
     }
 
     private ReportType parseDecisionType(String raw) {
-        if (raw == null || raw.isBlank()) throw new RuntimeException("decision_type은 필수입니다.");
+        if (raw == null || raw.isBlank()) throw new CustomException(ErrorCode.INVALID_DECISION_TYPE);
         String v = raw.trim().toUpperCase();
         return switch (v) {
             case "TRANSFER" -> ReportType.TRANSFER;
             case "NON_TRANSFER" -> ReportType.NON_TRANSFER;
             case "SUSPENSION" -> ReportType.SUSPENSION;
-            default -> throw new RuntimeException("decision_type 값이 올바르지 않습니다: " + raw);
+            default -> throw new CustomException(ErrorCode.INVALID_DECISION_TYPE);
         };
     }
 

@@ -1,5 +1,7 @@
 package com.aivle.big_project.security;
 
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.security.service.JwtTokenService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
@@ -53,7 +55,7 @@ public class JwtFilter extends OncePerRequestFilter {
             String role = claims.get(ROLE, String.class);
 
             if (role == null || role.isBlank()) {
-                throw new IllegalArgumentException("Missing role claim");
+                throw new CustomException(ErrorCode.ROLE_NOT_FOUND);
             }
 
             var auth = new UsernamePasswordAuthenticationToken(

@@ -1,5 +1,7 @@
 package com.aivle.big_project.security.service;
 
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.security.store.RefreshTokenStore;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -55,7 +57,7 @@ public class JwtTokenService implements AuthTokenService {
         String role = claims.get(ROLE, String.class);
 
         if (!refreshTokenStore.matches(userId, rawRefreshToken)) {
-            throw new RuntimeException("유효하지 않은 Refresh Token");
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         String newAccess = createJwt(userId, role, accessExpMillis);
@@ -79,9 +81,9 @@ public class JwtTokenService implements AuthTokenService {
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (ExpiredJwtException e) {
-            throw new RuntimeException("토큰이 만료되었습니다.");
+            throw new CustomException(ErrorCode.EXPIRED_TOKEN);
         } catch (JwtException e) {
-            throw new RuntimeException("토큰이 유효하지 않습니다.");
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
     }
 

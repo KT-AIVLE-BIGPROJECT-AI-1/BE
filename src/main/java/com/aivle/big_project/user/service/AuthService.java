@@ -1,5 +1,7 @@
 package com.aivle.big_project.user.service;
 
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.security.service.AuthTokenService;
 import com.aivle.big_project.security.service.JwtTokenService;
 import com.aivle.big_project.security.store.RefreshTokenStore;
@@ -35,7 +37,7 @@ public class AuthService {
     @Transactional
     public UserDetailResponse signup(SignupRequest req) {
         if(userRepository.existsByEmail(req.getEmail())) {
-            throw new RuntimeException("이미 사용 중인 이메일");
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         User user = User.builder()
@@ -94,7 +96,7 @@ public class AuthService {
                 .orElseThrow();
 
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            throw new RuntimeException("올바르지 않은 이메일");
+            throw new CustomException(ErrorCode.INVALID_EMAIL);
         }
 
         AuthTokenService.Tokens tokens =
@@ -111,7 +113,7 @@ public class AuthService {
 
         boolean match = refreshTokenStore.matches(userId, req.getRefreshToken());
 
-        if(!match) { throw new RuntimeException("유효하지 않은 Refresh Token"); }
+        if(!match) { throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN); }
 
         authTokenService.invalidateRefreshToken(userId);
     }
@@ -149,7 +151,7 @@ public class AuthService {
     @Transactional
     public UserDetailResponse signup_admin(SignupRequest req) {
         if(userRepository.existsByEmail(req.getEmail())) {
-            throw new RuntimeException("이미 사용 중인 이메일");
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         User user = User.builder()

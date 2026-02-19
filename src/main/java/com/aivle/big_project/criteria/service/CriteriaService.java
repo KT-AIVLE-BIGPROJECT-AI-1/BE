@@ -50,7 +50,7 @@ public class CriteriaService {
         CriteriaEvaluationEntity evaluation = criteriaEvaluationRepository
                 .findTopByCriteria_CriteriaIdOrderByCreatedAtDesc(criteriaId)
                 .orElseThrow(() ->
-                        new IllegalStateException("평가 정보가 존재하지 않습니다.")
+                        new CustomException(ErrorCode.CRITERIA_EVALUATION_NOT_FOUND)
                 );
 
         CriteriaEvaluationStatus status = evaluation.getStatus();

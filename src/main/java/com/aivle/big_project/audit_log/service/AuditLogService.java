@@ -7,6 +7,8 @@ import com.aivle.big_project.audit_log.entity.AuditAction;
 import com.aivle.big_project.audit_log.entity.AuditLog;
 import com.aivle.big_project.audit_log.entity.AuditTargetType;
 import com.aivle.big_project.audit_log.repository.AuditLogRepository;
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,14 +57,14 @@ public class AuditLogService {
     ) {
 
         User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("관리자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.ADMIN_NOT_FOUND));
 
         User targetUser = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("감사 대상 사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.TARGET_NOT_FOUND));
 
         if (!admin.getJurisdictionStation()
                 .equals(targetUser.getJurisdictionStation())) {
-            throw new RuntimeException("다른 관할서 사용자의 로그는 조회할 수 없습니다.");
+            throw new CustomException(ErrorCode.INVALID_JURISDICTION_STATION);
         }
 
         AuditAction actionEnum =

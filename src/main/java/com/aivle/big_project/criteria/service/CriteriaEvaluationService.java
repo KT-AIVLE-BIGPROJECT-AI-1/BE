@@ -232,7 +232,7 @@ public class CriteriaEvaluationService {
             CriteriaEvaluationResponse resp = aiClient.evaluateLegalCriteria(req);
 
             if (resp == null || resp.getStatus() == null) {
-                throw new CustomException(ErrorCode.EVALUATION_STATUS_NOT_FOUNT);
+                throw new CustomException(ErrorCode.EVALUATION_STATUS_NOT_INCLUDED);
             }
 
             CriteriaEvaluationStatus newStatus;
@@ -241,7 +241,7 @@ public class CriteriaEvaluationService {
                         resp.getStatus().trim().toUpperCase()
                 );
             } catch (Exception e) {
-                throw new RuntimeException("알 수 없는 status: " + resp.getStatus());
+                throw new CustomException(ErrorCode.INVALID_EVALUATION_STATUS);
             }
 
             // 상태가 실제로 변경된 경우에만 로그 남김

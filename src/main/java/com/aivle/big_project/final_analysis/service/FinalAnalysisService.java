@@ -79,7 +79,7 @@ public class FinalAnalysisService {
     public FinalAnalysisResponse create(UUID caseId, UUID userId) {
 
         CaseEntity aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new RuntimeException("사건이 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CASE_NOT_FOUND));
         assertAssignee(aCase, userId); // 사건 및 담당자 검증
 
         CaseSummary summaryDto = parseAndNormalizeCaseSummary(aCase);
@@ -254,21 +254,21 @@ public class FinalAnalysisService {
 
     private RecommendedDecision parseDecision(String raw) {
         if (raw == null || raw.isBlank()) {
-            throw new RuntimeException("recommended_decision이 비어있습니다.");
+            throw new CustomException(ErrorCode.RECOMMENDED_DECISION_NOT_FOUND);
         }
         try {
             return RecommendedDecision.valueOf(raw.trim().toUpperCase());
         } catch (Exception e) {
-            throw new RuntimeException("recommended_decision 값이 올바르지 않습니다: " + raw);
+            throw new CustomException(ErrorCode.INVALID_RECOMMENDED_DECISION);
         }
     }
 
     private void assertAssignee(CaseEntity aCase, UUID userId) {
         if (aCase.getUser() == null || aCase.getUser().getUserId() == null) {
-            throw new RuntimeException("사건 담당자 정보가 없습니다.");
+            throw new CustomException(ErrorCode.ASSIGNEE_NOT_FOUND);
         }
         if (!aCase.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("사건 담당자만 접근할 수 있습니다.");
+            throw new CustomException(ErrorCode.INVALID_ASSIGNEE_ACCESS);
         }
     }
 

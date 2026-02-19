@@ -1,5 +1,7 @@
 package com.aivle.big_project.security;
 
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -12,12 +14,12 @@ public final class SecurityUtils {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         if(auth == null || auth.getPrincipal() == null) {
-            throw new RuntimeException("인증이 필요함");
+            throw new CustomException(ErrorCode.AUTHORIZATION_REQUIRED);
         }
         try {
             return UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            throw new RuntimeException("올바르지 않은 인증 정보");
+            throw new CustomException(ErrorCode.INVALID_AUTHORIZATION_INFO);
         }
     }
 

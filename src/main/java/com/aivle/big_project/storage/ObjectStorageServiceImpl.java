@@ -1,5 +1,7 @@
 package com.aivle.big_project.storage;
 
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -66,7 +68,7 @@ public class ObjectStorageServiceImpl implements ObjectStorageService{
             return key;
         } catch (Exception e) {
             log.error("[S3-UPLOAD][FAIL] bucket={}, keyPrefix={}, originalName={}", bucket, keyPrefix, file.getOriginalFilename(), e);
-            throw new RuntimeException("S3 upload failed", e);
+            throw new CustomException(ErrorCode.S3_UPLOAD_FAILED);
         }
     }
 
@@ -145,7 +147,7 @@ public class ObjectStorageServiceImpl implements ObjectStorageService{
             String withoutScheme = s3UriOrKey.substring("s3://".length());
             int slashIdx = withoutScheme.indexOf('/');
             if (slashIdx < 0 || slashIdx == withoutScheme.length() - 1) {
-                throw new IllegalArgumentException("Invalid S3 URI: " + s3UriOrKey);
+                throw new CustomException(ErrorCode.INVALID_S3_URI);
             }
             return withoutScheme.substring(slashIdx + 1);
         }

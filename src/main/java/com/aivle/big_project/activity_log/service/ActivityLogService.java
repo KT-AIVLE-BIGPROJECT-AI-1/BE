@@ -9,6 +9,8 @@ import com.aivle.big_project.activity_log.entity.ActivityType;
 import com.aivle.big_project.activity_log.repository.ActivityLogRepository;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.repository.CaseRepository;
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +31,7 @@ public class ActivityLogService {
     public ActivityLogListResponse listActivityLogs(UUID caseId, UUID userId) {
 
         CaseEntity aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new RuntimeException("사건을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CASE_NOT_FOUND));
 
         assertAssignee(aCase, userId);
 
@@ -45,10 +47,10 @@ public class ActivityLogService {
 
     private void assertAssignee(CaseEntity aCase, UUID userId) {
         if (aCase.getUser() == null || aCase.getUser().getUserId() == null) {
-            throw new RuntimeException("사건 담당자 정보가 없습니다.");
+            throw new CustomException(ErrorCode.ASSIGNEE_NOT_FOUND);
         }
         if (!aCase.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("사건 담당자만 접근할 수 있습니다.");
+            throw new CustomException(ErrorCode.INVALID_ASSIGNEE_ACCESS);
         }
     }
 
@@ -67,7 +69,7 @@ public class ActivityLogService {
 
         CaseEntity managedCase =
                 caseRepository.findById(caseId)
-                        .orElseThrow(() -> new RuntimeException("Case not found"));
+                        .orElseThrow(() -> new CustomException(ErrorCode.CASE_NOT_FOUND));
 
         ActivityLog log = ActivityLog.builder()
                 .caseEntity(managedCase)
