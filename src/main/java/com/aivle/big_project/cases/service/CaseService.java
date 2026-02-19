@@ -24,6 +24,8 @@ import com.aivle.big_project.criteria.entity.LegalIssueEntity;
 import com.aivle.big_project.criteria.repository.CriteriaEvaluationRepository;
 import com.aivle.big_project.criteria.repository.CriteriaRepository;
 import com.aivle.big_project.criteria.repository.LegalIssueRepository;
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -269,7 +271,7 @@ public class CaseService {
         // 본인 포함 같은 경찰서(관할)에 있으면 조회 가능
         // 본인 X, 같은 관할서 X -> 403
         if(!isAssignee && !sameJurisdiction) {
-            throw new RuntimeException("해당 사건에 접근 권한이 없습니다.");
+            throw new CustomException(ErrorCode.INVALID_ASSIGNEE_ACCESS);
         }
 
         // 조작 가능 여부는 "내 담당 사건인지"로 결정
@@ -289,8 +291,8 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
-        if(!isAssignee) throw new RuntimeException("담당자만 수정할 수 있습니다.");
-        if(aCase.getStatus() != CaseStatus.OPEN) throw new RuntimeException("분석 이전 상태의 사건만 수정할 수 있습니다.");
+        if(!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
+        if(aCase.getStatus() != CaseStatus.OPEN) throw new CustomException(ErrorCode.INVALID_CASE_STATUS_EDIT);
 
         String before = aCase.getDescription();
         aCase.updateDescription(req.getDescription());
@@ -322,7 +324,7 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
-        if(!isAssignee) throw new RuntimeException("담당자만 상태 변경이 가능합니다.");
+        if(!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
 
         CaseStatus before = aCase.getStatus();
         CaseStatus newStatus = parseStatus(req.getStatus());
@@ -355,8 +357,8 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
-        if(!isAssignee) throw new RuntimeException("담당자만 삭제할 수 있습니다.");
-        if(aCase.getStatus() != CaseStatus.OPEN) throw new RuntimeException("분석 이전 상태의 사건만 삭제할 수 있습니다.");
+        if(!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
+        if(aCase.getStatus() != CaseStatus.OPEN) throw new CustomException(ErrorCode.INVALID_CASE_STATUS_DELETE);
 
         caseRepository.deleteById(caseId);
     }
@@ -483,18 +485,18 @@ public class CaseService {
         try {
             return CaseType.valueOf(raw.trim());
         } catch (Exception e) {
-            throw new RuntimeException("parseTypeOrNull: type 값이 올바르지 않습니다.");
+            throw new CustomException(ErrorCode.INVALID_CASE_TYPE);
         }
     }
 
     private CaseStatus parseStatus(String raw) {
         if (raw == null || raw.isBlank()) {
-            throw new RuntimeException("status 값이 비어있습니다.");
+            throw new CustomException(ErrorCode.CASE_STATUS_NOT_FOUND);
         }
         try {
             return CaseStatus.valueOf(raw.trim());
         } catch (Exception e) {
-            throw new RuntimeException("status 값이 올바르지 않습니다.");
+            throw new CustomException(ErrorCode.INVALID_CASE_STATUS);
         }
     }
     private CriteriaEvaluationStatus parseEvaluationStatus(String raw) {

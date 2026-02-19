@@ -3,6 +3,8 @@ package com.aivle.big_project.contradiction.entity;
 import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.keyStatement.entity.KeyStatementEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -62,7 +64,7 @@ public class ContradictionEntity {
 
     public void changeStatus(ContradictionStatus targetStatus) {
         if (!this.status.canChangeTo(targetStatus)) {
-            throw new IllegalStateException("INVALID_CONTRADICTION_STATUS_TRANSITION");
+            throw new CustomException(ErrorCode.INVALID_CONTRADICTION_STATUS_TRANSITION);
         }
         this.status = targetStatus;
     }

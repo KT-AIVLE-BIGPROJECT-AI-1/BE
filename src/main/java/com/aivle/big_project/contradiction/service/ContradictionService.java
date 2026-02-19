@@ -56,7 +56,7 @@ public class ContradictionService {
         var before = contradiction.getStatus();
         try {
             contradiction.changeStatus(request.getStatus());
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             throw new CustomException(
                     ErrorCode.INVALID_CONTRADICTION_STATUS_TRANSITION
             );

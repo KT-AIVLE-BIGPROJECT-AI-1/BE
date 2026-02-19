@@ -1,5 +1,7 @@
 package com.aivle.big_project.user.service;
 
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import com.aivle.big_project.storage.ObjectStorageService;
 import com.aivle.big_project.user.dto.user.UserDetailResponse;
 import com.aivle.big_project.user.dto.user.UserListResponse;
@@ -43,7 +45,7 @@ public class AdminService {
         String jurisdiction = admin.getJurisdictionStation();
 
         if(jurisdiction == null || jurisdiction.isBlank()) {
-            throw new RuntimeException("관리자 계정의 '관할서' 항목이 설정되어 있지 않습니다.");
+            throw new CustomException(ErrorCode.JURISDICTION_NOT_FOUND);
         }
 
         int safePage = (page == null || page < 1) ? 0 : page - 1;

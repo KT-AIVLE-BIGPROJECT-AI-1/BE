@@ -1,5 +1,7 @@
 package com.aivle.big_project.security;
 
+import com.aivle.big_project.global.exception.CustomException;
+import com.aivle.big_project.global.exception.ErrorCode;
 import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +19,7 @@ public class RefreshTokenHasher {
             byte[] digest = md.digest(raw.getBytes(StandardCharsets.UTF_8));
             return toHex(digest);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to Hash Refresh Token", e);
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_HASH_FAILED);
         }
     }
 
