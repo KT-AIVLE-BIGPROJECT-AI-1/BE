@@ -14,13 +14,13 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/cases/{caseId}/analysis")
+@RequestMapping
 public class AnalysisController {
 
     private final AnalysisService analysisService;
 
     // 분석 상태 조회
-    @GetMapping("/{analysisId}/status")
+    @GetMapping("/cases/{caseId}/analysis/{analysisId}/status")
     public AnalysisStatusResponse getStatus(
             @PathVariable UUID caseId,
             @PathVariable UUID analysisId
@@ -29,7 +29,7 @@ public class AnalysisController {
     }
 
     // 분석 상세 조회
-    @GetMapping("/{analysisId}")
+    @GetMapping("/cases/{caseId}/analysis/{analysisId}")
     public AnalysisDetailResponse getAnalysisDetail(
             @PathVariable UUID caseId,
             @PathVariable UUID analysisId
@@ -38,7 +38,7 @@ public class AnalysisController {
     }
 
     // 파일 분석 CallBack
-    @PostMapping("/{analysisId}/callback")
+    @PostMapping("/api/cases/{caseId}/analysis/{analysisId}/callback")
     public ResponseEntity<?> fileAnalysisCallBack(
             @PathVariable UUID caseId,
             @PathVariable UUID analysisId,
