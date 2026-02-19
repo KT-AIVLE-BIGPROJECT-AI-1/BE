@@ -9,4 +9,5 @@ public interface ObjectStorageService {
     void delete(String uriOrKey);
     String presignGetUrl(String uriOrKey);
     String presignDownloadUrl(String key, String downloadFileName);
+    String getContentType(String key);
 }

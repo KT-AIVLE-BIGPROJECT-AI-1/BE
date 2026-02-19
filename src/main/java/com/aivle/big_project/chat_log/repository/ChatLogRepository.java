@@ -11,12 +11,14 @@ import java.util.UUID;
 public interface ChatLogRepository extends JpaRepository<ChatLogEntity, UUID> {
 
     @Query("""
-        select c
-        from ChatLogEntity c
-        where c.caseEntity.caseId = :caseId
-        order by c.createdAt desc
-    """)
+    select c
+    from ChatLogEntity c
+    where c.caseEntity.caseId = :caseId
+    order by c.createdAt desc, c.chatId desc
+""")
     List<ChatLogEntity> findByCaseIdOrderByCreatedAtDesc(
             @Param("caseId") UUID caseId
     );
+
+    List<ChatLogEntity> findAllByCaseEntity_CaseIdOrderByCreatedAtAsc(UUID caseId);
 }

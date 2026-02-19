@@ -19,7 +19,7 @@ import java.util.UUID;
 @Builder
 public class ChatLogEntity {
 
-    @Id
+    @Id @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "chat_id", columnDefinition = "uuid")
     private UUID chatId;
 
@@ -30,7 +30,7 @@ public class ChatLogEntity {
     @Column(nullable = false, length = 10)
     private String role;
 
-    @Column(nullable = false, columnDefinition = "text")
+    @Column(columnDefinition = "text")
     private String message;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -39,4 +39,9 @@ public class ChatLogEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public void updateChatContent(String message, String usedContext) {
+        this.message = message;
+        this.usedContext = usedContext;
+    }
 }

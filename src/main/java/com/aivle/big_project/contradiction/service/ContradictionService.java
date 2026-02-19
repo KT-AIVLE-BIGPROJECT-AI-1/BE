@@ -22,6 +22,7 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ContradictionService {
 
     private final ContradictionRepository contradictionRepository;

@@ -1,14 +1,29 @@
 package com.aivle.big_project.cases.service;
 
+import com.aivle.big_project.ai.AiClient;
+import com.aivle.big_project.ai.AiClientException;
+import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryRequest;
+import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryResponse;
+import com.aivle.big_project.ai.dto.caseSummary.CaseSummary;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteria;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaRequest;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaResponse;
+import com.aivle.big_project.ai.dto.legalCriteria.LegalIssue;
 import com.aivle.big_project.activity_log.entity.ActivityLogField;
 import com.aivle.big_project.activity_log.entity.ActivityType;
 import com.aivle.big_project.activity_log.service.ActivityLogService;
-import com.aivle.big_project.cases.client.AiSummaryClient;
 import com.aivle.big_project.cases.dto.*;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
 import com.aivle.big_project.cases.entity.CaseType;
 import com.aivle.big_project.cases.repository.CaseRepository;
+import com.aivle.big_project.criteria.entity.CriteriaEntity;
+import com.aivle.big_project.criteria.entity.CriteriaEvaluationEntity;
+import com.aivle.big_project.criteria.entity.CriteriaEvaluationStatus;
+import com.aivle.big_project.criteria.entity.LegalIssueEntity;
+import com.aivle.big_project.criteria.repository.CriteriaEvaluationRepository;
+import com.aivle.big_project.criteria.repository.CriteriaRepository;
+import com.aivle.big_project.criteria.repository.LegalIssueRepository;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,13 +33,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -34,8 +49,12 @@ public class CaseService {
 
     private final CaseRepository caseRepository;
     private final UserRepository userRepository;
-    private final AiSummaryClient aiSummaryClient;
     private final CaseTabFlagService caseTabFlagService;
+    private final AiClient aiClient;
+    private final ObjectMapper objectMapper;
+    private final LegalIssueRepository legalIssueRepository;
+    private final CriteriaRepository criteriaRepository;
+    private final CriteriaEvaluationRepository evaluationRepository;
     private final ActivityLogService activityLogService;
 
     // 홈화면 대시보드
@@ -109,23 +128,47 @@ public class CaseService {
 
         CaseEntity saved = caseRepository.saveAndFlush(newCase);
 
-
-        // AI 호출 내용 - 구조화 요약 실패해도 사건 생성됨
+        // AI 호출 내용 - 구조화 요약 + 법리 생성 실패해도 사건 생성됨
         try {
-            AiSummaryClient.SummaryResult result = aiSummaryClient.summarize(
-                    AiSummaryClient.SummaryCommand.builder()
-                            .title(saved.getTitle())
-                            .description(saved.getDescription())
-                            .type(saved.getType().name())
-                            .location(saved.getLocation())
-                            .build()
-            );
-            if (result != null && result.summaryJson() != null && !result.summaryJson().isBlank()) {
-                saved.updateSummary(result.summaryJson());
-            }
+            CaseAiSummaryRequest summaryRequest = CaseAiSummaryRequest.builder()
+                    .title(saved.getTitle())
+                    .description(saved.getDescription())
+                    .type(saved.getType().name())
+                    .occurredAt(saved.getOccurredAt())
+                    .location(saved.getLocation())
+                    .build();
 
+            CaseAiSummaryResponse summaryResponse = aiClient.createCaseSummary(summaryRequest);
+            CaseSummary summary = summaryResponse.getSummary();
+
+            System.out.println("summary = " + summary);
+
+            saved.updateSummary(objectMapper.writeValueAsString(summary));
+
+            // 법리 쟁점/판단기준 생성
+            LegalCriteriaRequest criteriaRequest = LegalCriteriaRequest.builder()
+                    .description(saved.getDescription())
+                    .summary(summary)
+                    .type(saved.getType().name())
+                    .occurredAt(saved.getOccurredAt())
+                    .location(saved.getLocation())
+                    .build();
+
+            LegalCriteriaResponse criteriaResponse = aiClient.createLegalCriteria(criteriaRequest);
+
+            if (criteriaResponse == null
+                    || criteriaResponse.getLegalIssues() == null
+                    || criteriaResponse.getLegalIssues().isEmpty()) {
+                log.info("AI Legal Criteria 가 빈 값입니다. caseId={}", saved.getCaseId());
+            } else {
+                log.info("AI legal criteria 가 성공적으로 생성되었습니다. caseId={}, legalIssues={}", saved.getCaseId(), criteriaResponse.getLegalIssues().size());
+                saveLegalCriteriaFromDto(saved, criteriaResponse);
+            }
+        } catch (AiClientException e) {
+            log.warn("AI 응답 생성을 실패했습니다. caseId={}, status={}, body={}",
+                    saved.getCaseId(), e.getStatusCode(), e.getResponseBody(), e);
         } catch (Exception e) {
-            log.warn("AI summary generation failed. caseId={}, reason={}",
+            log.warn("AI 응답 생성 도중 문제가 발생했습니다. caseId={}, reason={}",
                     saved.getCaseId(), e.getMessage(), e);
         }
         return toDetail(saved, true);
@@ -285,7 +328,6 @@ public class CaseService {
         CaseStatus newStatus = parseStatus(req.getStatus());
 
         aCase.updateStatus(newStatus);
-
         activityLogService.log(
                 aCase.getCaseId(),
                 ActivityLogField.CASE,
@@ -352,6 +394,56 @@ public class CaseService {
     }
 
 
+    // AI LegalCriteriaResponse(legal_issues -> legal_criteria -> criteria_evaluation) DB 저장
+    private void saveLegalCriteriaFromDto(CaseEntity savedCase, LegalCriteriaResponse resp) {
+        List<LegalIssue> issues = resp.getLegalIssues();
+        if (issues == null || issues.isEmpty()) return;
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (LegalIssue issueDto : issues) {
+            LegalIssueEntity issue = LegalIssueEntity.builder()
+                    .caseEntity(savedCase)
+                    .issueName(issueDto.getIssueName())
+                    .relatedLaw(issueDto.getRelatedLaw())
+                    .build();
+            issue = legalIssueRepository.save(issue);
+
+            List<LegalCriteria> criteriaDtoList = issueDto.getLegalCriteria();
+            if (criteriaDtoList == null || criteriaDtoList.isEmpty()) continue;
+
+            List<CriteriaEntity> batch = new ArrayList<>();
+            for (LegalCriteria c : criteriaDtoList) {
+                CriteriaEntity criteria = CriteriaEntity.builder()
+                        .legalIssue(issue)
+                        .criterionText(c.getCriterionText())
+                        .precedentCaseNo(c.getPrecedentCaseNo())
+                        .precedentDecisionDate(c.getPrecedentDecisionDate())
+                        .createdAt(now) // created_at NOT NULL 대응
+                        .build();
+
+                batch.add(criteria);
+            }
+            List<CriteriaEntity> savedCriteria = criteriaRepository.saveAll(batch);// 판단기준 (criteria) 저장
+
+            for (int i = 0; i < Math.min(criteriaDtoList.size(), savedCriteria.size()); i++) { // 기준 충족평가(evaluation) 저장
+                LegalCriteria dto = criteriaDtoList.get(i);
+
+                if (dto.getCriteriaEvaluation() == null) continue;
+
+                CriteriaEvaluationEntity eval = CriteriaEvaluationEntity.builder()
+                        .criteria(savedCriteria.get(i)) // FK 연결
+                        .status(parseEvaluationStatus(dto.getCriteriaEvaluation().getStatus()))
+                        .reason(dto.getCriteriaEvaluation().getReason())
+                        .evidenceGap(dto.getCriteriaEvaluation().getEvidenceGap())
+                        .createdAt(now)
+                        .build();
+
+                evaluationRepository.save(eval);
+            }
+        }
+    }
+
     private CaseDetailResponse toDetail(CaseEntity c, boolean canEdit) {
         return CaseDetailResponse.builder()
                 .caseId(c.getCaseId())
@@ -405,5 +497,17 @@ public class CaseService {
             throw new RuntimeException("status 값이 올바르지 않습니다.");
         }
     }
+    private CriteriaEvaluationStatus parseEvaluationStatus(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return CriteriaEvaluationStatus.INSUFFICIENT;
+        }
+        try {
+            return CriteriaEvaluationStatus.valueOf(raw.trim().toUpperCase());
+        } catch (Exception e) {
+            log.warn("criteria evaluation status 값이 올바르지 않습니다. raw={}", raw);
+            return CriteriaEvaluationStatus.INSUFFICIENT;
+        }
+    }
+
 
 }

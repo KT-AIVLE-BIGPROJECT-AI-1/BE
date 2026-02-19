@@ -23,6 +23,7 @@ public class ReportDetailResponse {
     private String title;
     private String content;
     private String filePath;
+    private List<UUID> logIds;
 
     private List<UUID> selectedLogIds; // INTERIM만 채움
     private LocalDateTime createdAt;

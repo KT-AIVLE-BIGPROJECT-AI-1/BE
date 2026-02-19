@@ -15,7 +15,7 @@ import java.util.UUID;
 
 @Getter @NoArgsConstructor
 @Builder @AllArgsConstructor
-@Entity @Table(name = "REPORT")
+@Entity @Table(name = "FINAL_ANALYSIS")
 public class FinalAnalysis {
     @Id @UuidGenerator
     @Column(name = "final_id", columnDefinition = "uuid")

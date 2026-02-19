@@ -2,22 +2,27 @@ package com.aivle.big_project.transcript.entity;
 
 import com.aivle.big_project.analysis.entity.AnalysisEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
 @Entity
 @Table(name = "transcript")
-@Getter
+@Getter @Builder
+@AllArgsConstructor @NoArgsConstructor
 public class TranscriptEntity {
 
-    @Id
+    @Id @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "transcript_id")
     private UUID transcriptId;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "analysis_id", nullable = false, unique = true)
+//    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id", nullable = false) //, unique = true) 문제 때문에 일단 제외
     private AnalysisEntity analysis;
 
     @Column(name = "speaker")
@@ -28,4 +33,9 @@ public class TranscriptEntity {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @PrePersist
+    void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }
