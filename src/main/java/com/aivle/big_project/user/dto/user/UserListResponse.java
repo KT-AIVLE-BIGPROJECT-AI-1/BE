@@ -16,7 +16,6 @@ import java.util.UUID;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class UserListResponse {
     private List<UserItem> users;
-    private Info info;
 
     @Getter @Builder
     public static class UserItem {
@@ -32,14 +31,5 @@ public class UserListResponse {
 
         private String phoneNumber;
         private String profileImg;
-    }
-
-    @Getter @Builder
-    public static class Info {
-        private int page;
-        private int size;
-        private long totalElements;
-        private long totalPages;
-        private boolean hasNext;
     }
 }

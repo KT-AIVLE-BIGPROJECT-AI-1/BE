@@ -15,9 +15,6 @@ public class HomeDashboardResponse {
     @JsonProperty("cases")
     private List<CaseSummaryResponse> cases;
 
-    @JsonProperty("info")
-    private PageInfo info;
-
     @Getter
     @Builder
     @NoArgsConstructor

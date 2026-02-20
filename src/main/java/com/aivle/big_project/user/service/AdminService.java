@@ -8,11 +8,8 @@ import com.aivle.big_project.user.dto.user.UserListResponse;
 import com.aivle.big_project.user.entity.Role;
 import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -34,8 +31,6 @@ public class AdminService {
     // 사용자 전체 목록 조회
     public UserListResponse listUsers(
             UUID adminId,
-            Integer page,
-            Integer size,
             String keyword,
             String department,
             String rank
@@ -48,19 +43,14 @@ public class AdminService {
             throw new CustomException(ErrorCode.JURISDICTION_NOT_FOUND);
         }
 
-        int safePage = (page == null || page < 1) ? 0 : page - 1;
-        int safeSize = (size == null || size <= 0) ? 20 : Math.min(size, 100);
-
-        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.ASC, "name"));
-
         Specification<User> spec = Specification.where(jurisdictionEquals(jurisdiction));
         if (department != null && !department.isBlank()) spec = spec.and(departmentEquals(department));
         if (rank != null && !rank.isBlank()) spec = spec.and(rankEquals(rank));
         if (keyword != null && !keyword.isBlank()) spec = spec.and(keywordLike(keyword));
 
-        Page<User> result = userRepository.findAll(spec, pageable);
+        List<User> result = userRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "name"));
 
-        List<UserListResponse.UserItem> users = result.getContent().stream()
+        List<UserListResponse.UserItem> users = result.stream()
                 .map(u -> UserListResponse.UserItem.builder()
                         .userId(u.getUserId())
                         .email(u.getEmail())
@@ -74,17 +64,8 @@ public class AdminService {
                         .build())
                 .toList();
 
-        UserListResponse.Info info = UserListResponse.Info.builder()
-                .page(result.getNumber() + 1)
-                .size(result.getSize())
-                .totalElements(result.getTotalElements())
-                .totalPages(result.getTotalPages())
-                .hasNext(result.hasNext())
-                .build();
-
         return UserListResponse.builder()
                 .users(users)
-                .info(info)
                 .build();
     }
 

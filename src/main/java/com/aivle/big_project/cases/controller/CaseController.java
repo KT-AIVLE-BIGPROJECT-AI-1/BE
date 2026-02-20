@@ -25,8 +25,6 @@ public class CaseController {
     // 홈화면 대시보드
     @GetMapping("/home")
     public ResponseEntity<?> home(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false, name = "start_at")
@@ -36,7 +34,7 @@ public class CaseController {
     ) {
         UUID userId = SecurityUtils.currentUserId();
         return ResponseEntity.ok(
-                caseService.getHomeDashboard(page, size, keyword, type, startAt, endAt, userId)
+                caseService.getHomeDashboard(keyword, type, startAt, endAt, userId)
         );
     }
 
@@ -50,8 +48,6 @@ public class CaseController {
     // 우리서 내 사건 목록
     @GetMapping("/cases/jurisdiction")
     public ResponseEntity<?> jurisdictionCases(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false, name = "start_at")
@@ -61,16 +57,13 @@ public class CaseController {
     ) {
         UUID userId = SecurityUtils.currentUserId();
         return ResponseEntity.ok(caseService.listJurisdictionCases(
-                page, size, keyword, type,
-                startAt, endAt, userId
+                keyword, type, startAt, endAt, userId
         ));
     }
 
     // 내 사건 목록
     @GetMapping("/cases/user")
     public ResponseEntity<?> myCases(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false, name = "start_at")
@@ -80,8 +73,7 @@ public class CaseController {
     ) {
         UUID userId = SecurityUtils.currentUserId();
         return ResponseEntity.ok(caseService.listMyCases(
-                page, size, keyword, type,
-                startAt, endAt, userId
+                keyword, type, startAt, endAt, userId
         ));
     }
 

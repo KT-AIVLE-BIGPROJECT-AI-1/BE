@@ -1,5 +1,8 @@
 package com.aivle.big_project.cases.service;
 
+import com.aivle.big_project.activity_log.entity.ActivityLogField;
+import com.aivle.big_project.activity_log.entity.ActivityType;
+import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.ai.AiClient;
 import com.aivle.big_project.ai.AiClientException;
 import com.aivle.big_project.ai.dto.caseSummary.CaseAiSummaryRequest;
@@ -9,9 +12,6 @@ import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteria;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaRequest;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalCriteriaResponse;
 import com.aivle.big_project.ai.dto.legalCriteria.LegalIssue;
-import com.aivle.big_project.activity_log.entity.ActivityLogField;
-import com.aivle.big_project.activity_log.entity.ActivityType;
-import com.aivle.big_project.activity_log.service.ActivityLogService;
 import com.aivle.big_project.cases.dto.*;
 import com.aivle.big_project.cases.entity.CaseEntity;
 import com.aivle.big_project.cases.entity.CaseStatus;
@@ -30,12 +30,8 @@ import com.aivle.big_project.user.entity.User;
 import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -62,10 +58,9 @@ public class CaseService {
     // 홈화면 대시보드
     @Transactional
     public HomeDashboardResponse getHomeDashboard(
-            Integer page, Integer size, String keyword, String type,
+            String keyword, String type,
             LocalDateTime startOccurredAt, LocalDateTime endOccurredAt,
-            UUID userId)
-    {
+            UUID userId) {
         User user = userRepository.findById(userId).orElseThrow();
 
         long open = caseRepository.countByUser_UserIdAndStatus(user.getUserId(), CaseStatus.OPEN);
@@ -73,7 +68,7 @@ public class CaseService {
         long done = caseRepository.countByUser_UserIdAndStatus(user.getUserId(), CaseStatus.DONE);
 
         Map<String, Long> typeCounts = new LinkedHashMap<>();
-        for(CaseType t : CaseType.values()) {
+        for (CaseType t : CaseType.values()) {
             typeCounts.put(t.name(), caseRepository.countByUser_UserIdAndType(user.getUserId(), t));
         }
 
@@ -83,30 +78,21 @@ public class CaseService {
                 .and(CaseSpecifications.typeEquals(paredType))
                 .and(CaseSpecifications.occurredAtBetween(startOccurredAt, endOccurredAt));
 
-        int safePage = Math.max(page, 1);
-        int safeSize = size <= 0 ? 20 : size;
-
-        Pageable pageable = PageRequest.of(
-                safePage - 1,
-                safeSize,
+        List<CaseEntity> result = caseRepository.findAll(
+                spec,
                 Sort.by(Sort.Direction.DESC, "updatedAt")
         );
 
-        Page<CaseEntity> result = caseRepository.findAll(spec, pageable);
-
         return HomeDashboardResponse.builder()
                 .dashboard(HomeDashboardResponse.Dashboard.builder()
-                        .open(open).ongoing(ongoing).done(done)
+                        .open(open)
+                        .ongoing(ongoing)
+                        .done(done)
                         .typeCounts(typeCounts)
                         .build())
-                .cases(result.getContent().stream().map(this::toSummary).toList())
-                .info(PageInfo.builder()
-                        .page(safePage)
-                        .size(safeSize)
-                        .totalElements(result.getTotalElements())
-                        .totalPages(result.getTotalPages())
-                        .hasNext(result.hasNext())
-                        .build())
+                .cases(result.stream()
+                        .map(this::toSummary)
+                        .toList())
                 .build();
     }
 
@@ -179,7 +165,6 @@ public class CaseService {
     // 내 사건 목록
     @Transactional
     public CaseListResponse listMyCases(
-            Integer page, Integer size,
             String keyword, String type,
             LocalDateTime startOccurredAt, LocalDateTime endOccurredAt,
             UUID userId
@@ -193,32 +178,21 @@ public class CaseService {
                 .and(CaseSpecifications.typeEquals(parsedType))
                 .and(CaseSpecifications.occurredAtBetween(startOccurredAt, endOccurredAt));
 
-        int safePage = (page == null) ? 1 : Math.max(page, 1);
-        int safeSize = (size == null || size <= 0) ? 20 : size;
-
-        Pageable pageable = PageRequest.of(
-                safePage - 1, // 1-base -> 0-base
-                safeSize,
+        List<CaseEntity> result = caseRepository.findAll(
+                spec,
                 Sort.by(Sort.Direction.DESC, "updatedAt")
         );
 
-        Page<CaseEntity> result = caseRepository.findAll(spec, pageable);
         return CaseListResponse.builder()
-                .cases(result.getContent().stream().map(this::toSummary).toList())
-                .info(PageInfo.builder()
-                        .page(safePage)
-                        .size(safeSize)
-                        .totalElements(result.getTotalElements())
-                        .totalPages(result.getTotalPages())
-                        .hasNext(result.hasNext())
-                        .build())
+                .cases(result.stream()
+                        .map(this::toSummary)
+                        .toList())
                 .build();
     }
 
     // 우리서 사건 목록
     @Transactional
     public CaseListResponse listJurisdictionCases(
-            Integer page, Integer size,
             String keyword, String type,
             LocalDateTime startOccurredAt, LocalDateTime endOccurredAt,
             UUID userId
@@ -234,26 +208,16 @@ public class CaseService {
                 .and(CaseSpecifications.typeEquals(parsedType))
                 .and(CaseSpecifications.occurredAtBetween(startOccurredAt, endOccurredAt));
 
-        int safePage = (page == null) ? 1 : Math.max(page, 1);
-        int safeSize = (size == null || size <= 0) ? 20 : size;
 
-        Pageable pageable = PageRequest.of(
-                safePage - 1, // 1-base -> 0-base
-                safeSize,
+        List<CaseEntity> result = caseRepository.findAll(
+                spec,
                 Sort.by(Sort.Direction.DESC, "updatedAt")
         );
 
-        Page<CaseEntity> result = caseRepository.findAll(spec, pageable);
-
         return CaseListResponse.builder()
-                .cases(result.getContent().stream().map(this::toSummary).toList())
-                .info(PageInfo.builder()
-                        .page(safePage)
-                        .size(safeSize)
-                        .totalElements(result.getTotalElements())
-                        .totalPages(result.getTotalPages())
-                        .hasNext(result.hasNext())
-                        .build())
+                .cases(result.stream()
+                        .map(this::toSummary)
+                        .toList())
                 .build();
     }
 
@@ -270,7 +234,7 @@ public class CaseService {
         // 우리서 사건 상세 조회
         // 본인 포함 같은 경찰서(관할)에 있으면 조회 가능
         // 본인 X, 같은 관할서 X -> 403
-        if(!isAssignee && !sameJurisdiction) {
+        if (!isAssignee && !sameJurisdiction) {
             throw new CustomException(ErrorCode.INVALID_ASSIGNEE_ACCESS);
         }
 
@@ -291,8 +255,8 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
-        if(!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
-        if(aCase.getStatus() != CaseStatus.OPEN) throw new CustomException(ErrorCode.INVALID_CASE_STATUS_EDIT);
+        if (!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
+        if (aCase.getStatus() != CaseStatus.OPEN) throw new CustomException(ErrorCode.INVALID_CASE_STATUS_EDIT);
 
         String before = aCase.getDescription();
         aCase.updateDescription(req.getDescription());
@@ -324,7 +288,7 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
-        if(!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
+        if (!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
 
         CaseStatus before = aCase.getStatus();
         CaseStatus newStatus = parseStatus(req.getStatus());
@@ -357,8 +321,8 @@ public class CaseService {
         CaseEntity aCase = caseRepository.findById(caseId).orElseThrow();
         boolean isAssignee = aCase.getUser().getUserId().equals(userId);
 
-        if(!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
-        if(aCase.getStatus() != CaseStatus.OPEN) throw new CustomException(ErrorCode.INVALID_CASE_STATUS_DELETE);
+        if (!isAssignee) throw new CustomException(ErrorCode.INVALID_CASE_ASSIGNEE_PERMISSION);
+        if (aCase.getStatus() != CaseStatus.OPEN) throw new CustomException(ErrorCode.INVALID_CASE_STATUS_DELETE);
 
         caseRepository.deleteById(caseId);
     }
@@ -499,6 +463,7 @@ public class CaseService {
             throw new CustomException(ErrorCode.INVALID_CASE_STATUS);
         }
     }
+
     private CriteriaEvaluationStatus parseEvaluationStatus(String raw) {
         if (raw == null || raw.isBlank()) {
             return CriteriaEvaluationStatus.INSUFFICIENT;

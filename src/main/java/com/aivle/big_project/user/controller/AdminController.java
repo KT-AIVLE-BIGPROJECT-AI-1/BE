@@ -24,8 +24,6 @@ public class AdminController {
     // 사용자 전체 목록 조회
     @GetMapping
     public ResponseEntity<?> allUsers(
-            @RequestParam(defaultValue = "1", name = "page") Integer page,
-            @RequestParam(defaultValue = "20", name = "size") Integer size,
             @RequestParam(required = false, name = "keyword") String keyword,
             @RequestParam(required = false, name = "department") String department,
             @RequestParam(required = false, name = "rank") String rankName
@@ -33,7 +31,7 @@ public class AdminController {
         UUID adminId = SecurityUtils.currentUserId();
 
         UserListResponse res = adminService.listUsers(
-                adminId, page, size, keyword, department, rankName
+                adminId, keyword, department, rankName
         );
         return ResponseEntity.ok(res);
     }

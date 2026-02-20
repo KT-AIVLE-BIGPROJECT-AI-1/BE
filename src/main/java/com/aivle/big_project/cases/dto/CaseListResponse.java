@@ -13,5 +13,4 @@ import java.util.List;
 @AllArgsConstructor
 public class CaseListResponse {
     private List<CaseSummaryResponse> cases;
-    private PageInfo info;
 }
