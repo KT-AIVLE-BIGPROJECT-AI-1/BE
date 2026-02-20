@@ -1,5 +1,7 @@
 package com.aivle.big_project.audit_log.controller;
 
+import com.aivle.big_project.audit_log.entity.AuditAction;
+import com.aivle.big_project.audit_log.entity.AuditTargetType;
 import com.aivle.big_project.audit_log.service.AuditLogService;
 import com.aivle.big_project.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -32,14 +34,14 @@ public class AuditLogController {
             LocalDateTime to
     ) {
 
-        UUID adminId = SecurityUtils.currentUserId();
+        AuditAction actionEnum = action != null ? AuditAction.valueOf(action) : null;
+        AuditTargetType targetTypeEnum = targetType != null ? AuditTargetType.valueOf(targetType) : null;
 
         return ResponseEntity.ok(
                 auditLogService.search(
-                        adminId,
                         userId,
-                        action,
-                        targetType,
+                        actionEnum,
+                        targetTypeEnum,
                         from,
                         to
                 )

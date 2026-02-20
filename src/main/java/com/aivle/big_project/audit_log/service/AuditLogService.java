@@ -1,17 +1,12 @@
 package com.aivle.big_project.audit_log.service;
 
-import com.aivle.big_project.audit_log.dto.AuditLogResponse;
-import com.aivle.big_project.audit_log.dto.AuditLogSearchResponse;
-import com.aivle.big_project.audit_log.dto.AuditTargetUserResponse;
 import com.aivle.big_project.audit_log.entity.AuditAction;
 import com.aivle.big_project.audit_log.entity.AuditLog;
 import com.aivle.big_project.audit_log.entity.AuditTargetType;
 import com.aivle.big_project.audit_log.repository.AuditLogRepository;
-import com.aivle.big_project.global.exception.CustomException;
-import com.aivle.big_project.global.exception.ErrorCode;
-import com.aivle.big_project.user.entity.User;
-import com.aivle.big_project.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,9 +20,9 @@ import java.util.UUID;
 public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
-    private final UserRepository userRepository;
 
-    @Transactional AuditLog save(
+    @Transactional
+    AuditLog save(
             UUID userId,
             AuditAction action,
             AuditTargetType targetType,
@@ -47,76 +42,39 @@ public class AuditLogService {
     }
 
     @Transactional(readOnly = true)
-    public AuditLogSearchResponse search(
-            UUID adminId,
+    public List<AuditLog> search(
             UUID userId,
-            String action,
-            String targetType,
+            AuditAction action,
+            AuditTargetType targetType,
             LocalDateTime from,
             LocalDateTime to
     ) {
 
-        User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ADMIN_NOT_FOUND));
+        Specification<AuditLog> spec = Specification.where((root, query, cb) -> cb.equal(root.get("userId"), userId));
+        if (action != null) {
 
-        User targetUser = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.TARGET_NOT_FOUND));
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("action"), action));
 
-        if (!admin.getJurisdictionStation()
-                .equals(targetUser.getJurisdictionStation())) {
-            throw new CustomException(ErrorCode.INVALID_JURISDICTION_STATION);
         }
 
-        AuditAction actionEnum =
-                (action == null || action.isBlank())
-                        ? null
-                        : AuditAction.valueOf(action);
+        if (targetType != null) {
 
-        AuditTargetType targetTypeEnum =
-                (targetType == null || targetType.isBlank())
-                        ? null
-                        : AuditTargetType.valueOf(targetType);
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("targetType"), targetType));
 
-        List<AuditLog> logs = auditLogRepository.searchLogs(
-                userId,
-                actionEnum,
-                targetTypeEnum,
-                from,
-                to
-        );
+        }
 
-        List<AuditLogResponse> items = logs.stream()
-                .map(this::toResponse)
-                .toList();
+        if (from != null) {
 
-        AuditTargetUserResponse userDto = AuditTargetUserResponse.builder()
-                .userId(targetUser.getUserId())
-                .email(targetUser.getEmail())
-                .name(targetUser.getName())
-                .phoneNumber(targetUser.getPhoneNumber())
-                .role(targetUser.getRole().name())
-                .profileImg(targetUser.getProfileImg())
-                .jurisdictionStation(targetUser.getJurisdictionStation())
-                .department(targetUser.getDepartment())
-                .rankName(targetUser.getRankName())
-                .build();
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("createdAt"), from));
 
-        return AuditLogSearchResponse.builder()
-                .user(userDto)
-                .logs(items)
-                .build();
+        }
+
+        if (to != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("createdAt"), to));
+
+        }
+
+        return auditLogRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+
     }
-
-    private AuditLogResponse toResponse(AuditLog log) {
-        return AuditLogResponse.builder()
-                .auditId(log.getLogId())
-                .action(log.getAction().name())
-                .targetType(log.getTargetType().name())
-                .targetId(log.getTargetId())
-                .metadata(log.getMetadata())
-                .userId(log.getUserId())
-                .createdAt(log.getCreatedAt())
-                .build();
-    }
-
 }
