@@ -54,7 +54,7 @@ public class AuthService {
 
         User saved = userRepository.save(user);
 
-        String uploadedKey = null;
+        String uploadedKey;
         MultipartFile profileImg = req.getProfileImg();
         if(profileImg != null && !profileImg.isEmpty()) {
             try {
@@ -93,7 +93,9 @@ public class AuthService {
     @Transactional
     public TokenResponse login(LoginRequest req) {
         User user = userRepository.findByEmail(req.getEmail())
-                .orElseThrow();
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.INVALID_EMAIL)
+                );
 
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_EMAIL);
@@ -132,7 +134,7 @@ public class AuthService {
 
         return TokenResponse.builder()
                 .accessToken(newTokens.accessToken())
-                .refreshToken(newTokens.refreshToken()) // (선택)
+                .refreshToken(newTokens.refreshToken())
                 .role(role)
                 .expiresIn(newTokens.expiresInSeconds())
                 .build();
