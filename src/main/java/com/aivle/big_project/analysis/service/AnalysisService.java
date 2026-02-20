@@ -866,12 +866,23 @@ public class AnalysisService {
     private UUID resolveKeyStatementIdAcrossCase(UUID caseId, AnalysisEntity current, String ref) {
         if (ref == null || ref.isBlank()) return null;
 
-        // 1️⃣ UUID 직접 들어온 경우
+        // 1️⃣ UUID 직접 변환
         try {
             return UUID.fromString(ref);
         } catch (Exception ignored) {}
 
-        // 2️⃣ temp_map에서 찾기 (기존 로직 유지)
+        // 2️⃣ DB 직접 조회 (race condition 방지 핵심)
+        UUID dbMatch = keyStatementRepository
+                .findAllByAnalysis_File_CaseId(caseId)
+                .stream()
+                .filter(ks -> ref.equals(ks.getTempId()))
+                .map(KeyStatementEntity::getStatementId)
+                .findFirst()
+                .orElse(null);
+
+        if (dbMatch != null) return dbMatch;
+
+        // 3️⃣ 현재 analysis temp_map
         try {
             ObjectNode root = readOrCreateRoot(current);
             ObjectNode meta = getOrCreateMeta(root);
@@ -879,6 +890,7 @@ public class AnalysisService {
             if (v != null) return v;
         } catch (Exception ignore) {}
 
+        // 4️⃣ case 전체 analysis temp_map
         try {
             List<AnalysisEntity> analyses = analysisRepository.findAllByFile_CaseId(caseId);
             for (AnalysisEntity a : analyses) {
@@ -890,14 +902,7 @@ public class AnalysisService {
             }
         } catch (Exception ignore) {}
 
-        // 3️⃣ 🔥 여기 추가 (DB 직접 조회 fallback)
-        return keyStatementRepository
-                .findAllByAnalysis_File_CaseId(caseId)
-                .stream()
-                .filter(ks -> ref.equals(ks.getTempId()))
-                .map(KeyStatementEntity::getStatementId)
-                .findFirst()
-                .orElse(null);
+        return null;
     }
 
     // CONTRADICTION 참조 해석
@@ -910,6 +915,7 @@ public class AnalysisService {
             UUID v = resolveTempMap(meta, "CONTRADICTION", ref);
             if (v != null ) return v;
         } catch (Exception ignore) {}
+
         try {
             List<AnalysisEntity> analyses = analysisRepository.findAllByFile_CaseId(caseId);
             for (AnalysisEntity a : analyses) {
