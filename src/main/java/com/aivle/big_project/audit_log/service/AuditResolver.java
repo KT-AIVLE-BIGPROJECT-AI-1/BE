@@ -81,13 +81,6 @@ public class AuditResolver {
             return new Resolved(toCrud(method), AuditTargetType.USER, extractUuidFromPath(path), false, null);
         }
 
-        // REPORTS
-        if (path.startsWith("/reports")) {
-            UUID reportId = extractReportId(path);
-            AuditAction action = path.endsWith("/download") ? AuditAction.DOWNLOAD : toCrud(method);
-            return new Resolved(action, AuditTargetType.REPORT, reportId, false, null);
-        }
-
         // CASES and sub-resources
         if (path.startsWith("/cases")) {
             UUID caseId = extractCaseId(path);
@@ -152,15 +145,6 @@ public class AuditResolver {
             // 모순 목록 조회
             if (path.matches("^/cases/[0-9a-fA-F\\-]{36}/contradiction(/.*)?$")) {
                 return new Resolved(toCrud(method), AuditTargetType.CONTRADICTION, caseId, false, null);
-            }
-
-            // 사건 보고서(케이스 하위)
-            if (path.matches("^/cases/[0-9a-fA-F\\-]{36}/reports(/.*)?$")) {
-                AuditAction action;
-                if (path.endsWith("/download")) action = AuditAction.DOWNLOAD;
-                else action = toCrud(method);
-                UUID reportId = subId;
-                return new Resolved(action, AuditTargetType.REPORT, reportId != null ? reportId : caseId, false, null);
             }
 
             // 그 외 /cases 하위는 기본적으로 CASE로 로깅

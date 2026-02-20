@@ -151,13 +151,4 @@ public class ReportController {
         return ResponseEntity.ok(reportService.getReportDetail(reportId, userId));
     }
 
-//    // 보고서 다운로드
-//    @GetMapping("/reports/{reportId}/download")
-//    public ResponseEntity<?> download(@PathVariable UUID reportId) {
-//        return ResponseEntity.ok(reportService.getDownloadUrl(reportId));
-//    }
-
-
-
-
 }
