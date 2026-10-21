@@ -1,8 +1,6 @@
 package com.aivle.big_project.user.controller;
-import com.aivle.big_project.security.service.JwtTokenService;
 
 import com.aivle.big_project.security.SecurityUtils;
-import com.aivle.big_project.security.service.AuthTokenService;
 import com.aivle.big_project.user.dto.auth.*;
 import com.aivle.big_project.user.service.AuthService;
 import jakarta.validation.Valid;
@@ -22,7 +20,6 @@ public class AuthController {
 
     private final AuthService authService;
     private final ObjectMapper objectMapper;
-    private final JwtTokenService jwtTokenService;
 
     @PostMapping(value = "/signup", consumes = "multipart/form-data")
     public ResponseEntity<?> signup(
@@ -38,22 +35,9 @@ public class AuthController {
         return ResponseEntity.ok(authService.signup(req));
     }
 
-    /*@PostMapping("/login")
+    @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
         return ResponseEntity.ok(authService.login(req));
-    }*/
-
-    // 발표용 로그인
-    @PostMapping("/login")
-    public ResponseEntity<AuthTokenService.Tokens> login(
-            @RequestBody LoginRequest req
-    ) {
-        return ResponseEntity.ok(
-                jwtTokenService.issueTokens(
-                        UUID.fromString("0f345386-3c89-4e80-a068-8caab2117360"),
-                        "INVESTIGATOR"
-                )
-        );
     }
 
     // 헤더에 Access Token 필요
